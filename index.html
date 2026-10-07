@@ -1,0 +1,263 @@
+<title>Coin Planets</title>
+<meta name="description" content="A browser clone of Coin Planets built with Phaser: collect every coin to clear each planet.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@700;800&display=swap">
+<style>
+  /* Layout: Phaser letterboxes a 4:3 canvas in the viewport; touch pads float over the bottom edge. */
+  :root {
+    --space: #04050b;
+    --ink: #f3f1ff;
+    --gold: #ffd02a;
+    --font-display: "Fredoka", "Arial Rounded MT Bold", "Trebuchet MS", sans-serif;
+    color-scheme: dark;
+  }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--space);
+    color: var(--ink);
+    overflow: hidden;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #game { position: fixed; inset: 0; }
+  #game canvas { touch-action: none; outline: none; }
+  /* Keep the font files warm so Phaser text can use them. */
+  .font-warm { position: absolute; left: -9999px; font-family: "Fredoka"; font-weight: 700; }
+  .font-warm b { font-family: "Nunito"; font-weight: 800; }
+  #touch {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    padding: 0 16px calc(16px + env(safe-area-inset-bottom, 0px));
+    pointer-events: none;
+  }
+  #touch .group { display: flex; gap: 14px; }
+  .tbtn {
+    pointer-events: auto;
+    width: 74px;
+    height: 74px;
+    border-radius: 50%;
+    border: 0;
+    /* soft glossy vinyl button, lit from the top-left */
+    background: radial-gradient(circle at 35% 28%, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0.12) 48%, rgba(10, 12, 30, 0.28) 100%);
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35), inset 0 2px 3px rgba(255, 255, 255, 0.35), inset 0 -5px 10px rgba(0, 0, 0, 0.25);
+    color: var(--ink);
+    text-shadow: 0 2px 0 rgba(0, 0, 0, 0.25);
+    font: 700 30px/1 var(--font-display);
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .tbtn.on {
+    background: radial-gradient(circle at 35% 28%, #fff6c4, #ffcd3c 50%, #c98400 100%);
+    color: #4a2a00;
+    transform: translateY(2px);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.35), inset 0 2px 3px rgba(255, 255, 255, 0.5), inset 0 -4px 8px rgba(120, 60, 0, 0.35);
+  }
+  .tbtn.jump { width: 88px; height: 88px; }
+  .tbtn:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+  [hidden] { display: none !important; }
+
+  /* ---------- level editor ---------- */
+  :root {
+    --ed-bar-h: 58px;
+    --ed-side-w: 336px;
+    --ed-panel: #0c0e22;
+    --ed-panel-2: #151936;
+    --ed-line: rgba(160, 170, 255, 0.16);
+    --ed-muted: #a6abd3;
+    --ed-warn: #ffc75a;
+    --ed-bad: #ff6b7d;
+    --ed-good: #7fe0a0;
+    --font-body: "Nunito", "Trebuchet MS", system-ui, sans-serif;
+  }
+  body.editing #game { inset: var(--ed-bar-h) var(--ed-side-w) 0 0; }
+  body.editing #touch { display: none !important; }
+  #editor-ui { font: 600 14px/1.4 var(--font-body); color: var(--ink); }
+  .ed-bar {
+    position: fixed; top: 0; left: 0; right: 0; height: var(--ed-bar-h);
+    display: flex; align-items: center; gap: 8px;
+    padding: 0 16px; box-sizing: border-box;
+    background: var(--ed-panel); border-bottom: 1px solid var(--ed-line);
+    overflow-x: auto; white-space: nowrap; z-index: 5;
+  }
+  .ed-logo { font: 22px/1 var(--font-display); color: var(--gold); margin-right: 6px; letter-spacing: 0.3px; }
+  .ed-sep { width: 1px; align-self: stretch; margin: 12px 4px; background: var(--ed-line); flex: none; }
+  .ed-grow { flex: 1 0 8px; }
+  .ed-bar select, .ed-bar input, .ed-prop input, .ed-prop select {
+    font: inherit; color: var(--ink); background: var(--ed-panel-2);
+    border: 1px solid var(--ed-line); border-radius: 8px; padding: 7px 10px; min-width: 0;
+  }
+  .ed-bar select, .ed-bar input { flex: none; }
+  .ed-bar input { width: 170px; }
+  .ed-bar select { max-width: 190px; }
+  .ed-btn {
+    font: 800 13px/1 var(--font-body); color: var(--ink); background: var(--ed-panel-2);
+    border: 1px solid var(--ed-line); border-radius: 8px; padding: 9px 12px; cursor: pointer; flex: none;
+  }
+  .ed-btn:hover:not(:disabled) { border-color: rgba(255, 208, 42, 0.6); }
+  .ed-btn:disabled { opacity: 0.4; cursor: default; }
+  .ed-btn.on { border-color: var(--gold); color: var(--gold); }
+  .ed-btn.primary { background: var(--gold); color: #241600; border-color: var(--gold); }
+  .ed-btn.danger { color: var(--ed-bad); }
+  .ed-btn[data-armed] { background: var(--ed-bad); color: #fff; }
+  .ed-btn:focus-visible, .ed-tool:focus-visible, .ed-bar select:focus-visible, .ed-bar input:focus-visible,
+  .ed-prop input:focus-visible, .ed-prop select:focus-visible, .ed-dialog textarea:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
+  .ed-side {
+    position: fixed; top: var(--ed-bar-h); right: 0; bottom: 0; width: var(--ed-side-w);
+    box-sizing: border-box; padding: 14px 16px 24px; overflow-y: auto;
+    background: var(--ed-panel); border-left: 1px solid var(--ed-line);
+    display: flex; flex-direction: column; gap: 18px;
+  }
+  .ed-side h2 {
+    margin: 0 0 8px; font: 800 11px/1 var(--font-body); letter-spacing: 1.6px; text-transform: uppercase; color: var(--ed-muted);
+  }
+  .ed-tools { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .ed-tool {
+    display: grid; grid-template-columns: 30px 1fr auto; align-items: center; gap: 6px;
+    min-width: 0; padding: 5px 7px; cursor: pointer; text-align: left;
+    font: 700 13px/1.1 var(--font-body); color: var(--ink);
+    background: var(--ed-panel-2); border: 1px solid transparent; border-radius: 8px;
+  }
+  .ed-tool:hover { border-color: var(--ed-line); }
+  .ed-tool.on { border-color: var(--gold); background: rgba(255, 208, 42, 0.12); }
+  .ed-ico { width: 30px; height: 30px; display: grid; place-items: center; font-size: 18px; color: var(--gold); }
+  .ed-ico img { max-width: 30px; max-height: 30px; object-fit: contain; }
+  .ed-tname { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ed-tool kbd, .ed-keys kbd {
+    font: 800 10px/1 var(--font-body); color: var(--ed-muted);
+    border: 1px solid var(--ed-line); border-radius: 4px; padding: 3px 5px;
+  }
+  .ed-props { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .ed-prop { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--ed-muted); min-width: 0; }
+  .ed-prop input, .ed-prop select { width: 100%; box-sizing: border-box; font-variant-numeric: tabular-nums; }
+  .ed-row { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  .ed-hint { margin: 8px 0 0; color: var(--ed-muted); font-weight: 600; font-size: 13px; }
+  .ed-facts { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; margin: 0; }
+  .ed-facts dt { font: 18px/1.2 var(--font-display); color: var(--gold); text-align: right; font-variant-numeric: tabular-nums; }
+  .ed-facts dd { margin: 0; align-self: center; color: var(--ink); }
+  .ed-ok, .ed-warn, .ed-error { margin: 10px 0 0; padding: 8px 10px; border-radius: 8px; font-size: 13px; }
+  .ed-ok { color: var(--ed-good); background: rgba(127, 224, 160, 0.1); }
+  .ed-warn { color: var(--ed-warn); background: rgba(255, 199, 90, 0.1); }
+  .ed-error { color: var(--ed-bad); background: rgba(255, 107, 125, 0.1); }
+  .ed-error:empty { display: none; }
+  .ed-keys dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 10px; margin: 0; font-size: 13px; }
+  .ed-keys dt { text-align: right; white-space: nowrap; }
+  .ed-keys dd { margin: 0; color: var(--ed-muted); }
+  .ed-modal {
+    position: fixed; inset: 0; z-index: 20; display: grid; place-items: center;
+    padding: 16px; background: rgba(2, 3, 10, 0.7);
+  }
+  .ed-dialog {
+    width: min(640px, 100%); box-sizing: border-box; padding: 20px;
+    background: var(--ed-panel); border: 1px solid rgba(255, 208, 42, 0.5); border-radius: 14px;
+  }
+  .ed-dialog h2 { margin: 0 0 6px; font: 26px/1.1 var(--font-display); color: var(--gold); }
+  .ed-dialog p { margin: 0 0 12px; color: var(--ed-muted); max-width: 60ch; }
+  .ed-dialog textarea {
+    width: 100%; height: min(46vh, 360px); box-sizing: border-box; resize: vertical;
+    font: 12px/1.45 ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    color: var(--ink); background: #070816; border: 1px solid var(--ed-line); border-radius: 8px; padding: 10px;
+  }
+  .ed-toast {
+    position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 30;
+    max-width: min(520px, calc(100% - 32px)); padding: 10px 16px; border-radius: 10px;
+    background: #fff4c7; color: #2a1800; font-weight: 800; box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+  }
+  @media (max-width: 860px) {
+    :root { --ed-side-h: 42vh; }
+    body.editing #game { inset: var(--ed-bar-h) 0 var(--ed-side-h) 0; }
+    .ed-side { top: auto; left: 0; width: auto; height: var(--ed-side-h); border-left: 0; border-top: 1px solid var(--ed-line); }
+    .ed-tools { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
+    .ed-keys { display: none; }
+    .ed-logo { display: none; }
+    .ed-bar input { width: 130px; }
+    .ed-bar select { max-width: 150px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .ed-toast { transition: none; } }
+</style>
+
+<div id="game" aria-label="Coin Planets game. Arrow keys to move, Space to jump."></div>
+<div class="font-warm" aria-hidden="true">Coin <b>Planets</b></div>
+<div id="touch" hidden>
+  <div class="group">
+    <button class="tbtn" id="btn-left" data-k="left" aria-label="Move left">&#9664;</button>
+    <button class="tbtn" id="btn-right" data-k="right" aria-label="Move right">&#9654;</button>
+  </div>
+  <div class="group">
+    <button class="tbtn" id="btn-pause" data-k="pause" aria-label="Pause">II</button>
+    <button class="tbtn jump" id="btn-jump" data-k="jump" aria-label="Jump">&#9650;</button>
+  </div>
+</div>
+
+<div id="editor-ui" hidden>
+  <header class="ed-bar">
+    <span class="ed-logo">Planet editor</span>
+    <button class="ed-btn" id="ed-exit" type="button" title="Back to the title screen">&#9664; Title</button>
+    <span class="ed-sep"></span>
+    <select id="ed-open" aria-label="Open or start a planet"></select>
+    <input id="ed-name" maxlength="40" aria-label="Planet name" placeholder="Planet name">
+    <select id="ed-theme" aria-label="Sky"></select>
+    <span class="ed-sep"></span>
+    <button class="ed-btn" id="ed-undo" type="button" title="Undo (Ctrl+Z)">Undo</button>
+    <button class="ed-btn" id="ed-redo" type="button" title="Redo (Ctrl+Y)">Redo</button>
+    <button class="ed-btn" id="ed-grid" type="button" title="Snap to a 10px grid (G). Hold Shift to place freely.">Snap on</button>
+    <span class="ed-grow"></span>
+    <button class="ed-btn" id="ed-export" type="button">Export</button>
+    <button class="ed-btn" id="ed-import" type="button">Import</button>
+    <button class="ed-btn danger" id="ed-delete" type="button">Delete</button>
+    <button class="ed-btn primary" id="ed-play" type="button" title="Play test (T)">&#9654; Play test</button>
+  </header>
+  <aside class="ed-side" aria-label="Editor panel">
+    <section><h2>Tools</h2><div id="ed-tools" class="ed-tools"></div></section>
+    <section><h2 id="ed-props-title">Selection</h2><div id="ed-props"></div></section>
+    <section><h2>Planet check</h2><div id="ed-status"></div></section>
+    <section class="ed-keys">
+      <h2>Shortcuts</h2>
+      <dl>
+        <dt><kbd>Shift</kbd> drag</dt><dd>Place without snapping</dd>
+        <dt>Right-click</dt><dd>Erase</dd>
+        <dt><kbd>Del</kbd></dt><dd>Remove selection</dd>
+        <dt><kbd>Ctrl</kbd> <kbd>D</kbd></dt><dd>Duplicate selection</dd>
+        <dt>Arrows</dt><dd>Nudge 10px, Shift for 1px</dd>
+        <dt><kbd>Ctrl</kbd> <kbd>Z</kbd> / <kbd>Y</kbd></dt><dd>Undo / redo</dd>
+        <dt><kbd>T</kbd></dt><dd>Play test</dd>
+        <dt><kbd>Esc</kbd></dt><dd>Deselect, back to Select</dd>
+      </dl>
+    </section>
+  </aside>
+  <div id="ed-modal" class="ed-modal" hidden>
+    <div class="ed-dialog" role="dialog" aria-modal="true" aria-labelledby="ed-modal-title">
+      <h2 id="ed-modal-title"></h2>
+      <p id="ed-modal-text"></p>
+      <textarea id="ed-modal-area" spellcheck="false" aria-label="Planet text"></textarea>
+      <p id="ed-modal-error" class="ed-error" role="alert"></p>
+      <div class="ed-row">
+        <button id="ed-modal-go" class="ed-btn primary" type="button"></button>
+        <button id="ed-modal-close" class="ed-btn" type="button">Close</button>
+      </div>
+    </div>
+  </div>
+  <div id="ed-toast" class="ed-toast" role="status" hidden></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.90.0/phaser.min.js"></script>
+<script charset="utf-8" src="js/levels.js"></script>
+<script charset="utf-8" src="js/sprites.js"></script>
+<script charset="utf-8" src="js/art.js"></script>
+<script charset="utf-8" src="js/audio.js"></script>
+<script charset="utf-8" src="js/music.js"></script>
+<script charset="utf-8" src="js/controls.js"></script>
+<script charset="utf-8" src="js/ui.js"></script>
+<script charset="utf-8" src="js/editor-model.js"></script>
+<script charset="utf-8" src="js/scenes/boot.js"></script>
+<script charset="utf-8" src="js/scenes/title.js"></script>
+<script charset="utf-8" src="js/scenes/game.js"></script>
+<script charset="utf-8" src="js/scenes/hud.js"></script>
+<script charset="utf-8" src="js/scenes/editor.js"></script>
+<script charset="utf-8" src="js/main.js"></script>
