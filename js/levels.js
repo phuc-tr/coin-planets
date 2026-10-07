@@ -10,50 +10,32 @@ var CP = window.CP = window.CP || {};
 // icicles hang under a platform, spikes stand on top: [platformIndex, offsetX]
 // Every planet is built around one idea, noted above it. The screen wraps left/right, and falling
 // off the bottom drops you back in from the top, so several planets are laid out across those seams.
-// World 1: Titan, home of the grey aliens.
+// World 1: Venus (internal id 'titan', kept so saved progress carries over), home of the grey aliens.
 const LEVELS = [
-  // Coin stacks: a gentle climb that teaches jumping up through columns of coins.
+  // The valley: a V of steps climbs out of a small floor on both sides and meets across the left/right seam,
+  // with a summit pad above the middle. Either side of the floor is open: fall off and you drop back in from the top.
   {
-    name: 'Aurum',
+    name: 'Vale',
     theme: { sky: '#07050a', glow: '#f5a524', glow2: '#ffe27a',
-      planet: { x: 150, y: 330, r: 40, kind: 'banded', c: ['#c98f4e', '#f2d6a2', '#9a5f2c', '#e6bf80'] } },
-    start: [130, 700],
-    plat: [[40,700,340],[540,700,320],[300,570,200],[780,570,200],[60,440,220],[500,440,240],[260,310,200],[720,310,220],[460,180,160]],
+      planet: { x: 512, y: 330, r: 40, kind: 'banded', c: ['#c98f4e', '#f2d6a2', '#9a5f2c', '#e6bf80'] } },
+    start: [512, 700],
+    plat: [[362,700,300],[210,590,150],[664,590,150],[70,480,150],[804,480,150],[0,370,110],[914,370,110],
+      [220,260,150],[654,260,150],[442,150,140]],
     movers: [],
     coins: c => {
-      c.on(0,'g',3); c.on(1,'g',3,2); c.on(2,'s',2,2); c.on(3,'s',2,2); c.on(4,'g',3,2); c.on(5,'s',3,2);
-      c.on(6,'g',2,3); c.on(7,'s',3,3); c.on(8,'g',1,4);
-      c.arc('s',380,668,540,668,3,30);
+      c.on(0,'b',3); c.on(1,'b',2,2); c.on(2,'b',2,2); c.on(3,'g',2,2); c.on(4,'g',2,2);
+      c.on(5,'g',2,3); c.on(6,'g',2,3); c.on(7,'s',2,3); c.on(8,'s',2,3); c.on(9,'g',1,4);
+      // drop off either edge of the summit and fall through a coin column onto the floor
+      c.col('g',414,250,6,60); c.col('g',610,250,6,60);
     },
-    walkers: [[5,40]],
+    walkers: [[0,40,270]],
     flyers: [], orbs: [],
-    icicles: [[6,100]],
+    icicles: [],
     spikes: [],
-    items: [['burger',170,250]],
-  },
-  // The seam: the climb is built across the left/right edge; the middle is open sky with two lifts.
-  {
-    name: 'Glacia',
-    theme: { sky: '#03070c', glow: '#1fa9d6', glow2: '#bff3ff',
-      planet: { x: 600, y: 120, r: 34, kind: 'ringed', c: ['#cfe8f2', '#9cc9dc', '#e9f7ff', '#7fb0c8'] } },
-    start: [100, 700],
-    plat: [[0,700,200],[824,700,200],[90,570,150],[830,440,150],[60,310,150],[850,180,150]],
-    movers: [
-      { x: 462, y: 700, w: 100, ax: 250, ay: 0, period: 5, phase: 0 },
-      { x: 462, y: 420, w: 100, ax: 0, ay: 180, period: 6, phase: 0 },
-    ],
-    coins: c => {
-      c.on(0,'g',3,2); c.on(1,'g',3,2); c.on(2,'s',2,3); c.on(3,'s',2,3); c.on(4,'s',2,3); c.on(5,'g',3,2);
-      c.arc('g',90,540,-44,410,3,60); c.arc('g',980,410,1084,280,3,60); c.arc('g',60,280,-24,150,2,50);
-      c.row('s',272,668,6,90); c.col('g',512,220,8,46); c.arc('g',400,190,624,190,4,40);
-    },
-    walkers: [[1,40]],
-    flyers: [[512,330,230,24,7]], orbs: [],
-    icicles: [[3,75],[5,75]],
-    spikes: [],
-    items: [['heart',512,120]],
+    items: [['burger',1004,330]],
   },
   // Freefall well: almost no ground. Drop off the bottom, re-enter at the top, and steer through the coin rain.
+  // Hard part: a ghost circles the gold tower on the centre pad, and spikes split the right landing pad.
   {
     name: 'Rubra',
     theme: { sky: '#0a0405', glow: '#e0412a', glow2: '#ffb07a',
@@ -67,15 +49,16 @@ const LEVELS = [
         c.row('s', 714 - 36 * Math.sin(j * 0.8), 110 + j * 70, 1);
       }
       c.col('s',405,110,9,70); c.col('g',619,110,9,70);
-      c.on(0,'s',3); c.on(1,'s',3,2); c.on(2,'g',2,2); c.on(3,'g',2,2); c.on(4,'g',1,4);
+      c.on(0,'b',3); c.on(1,'b',3,2); c.on(2,'g',2,2); c.on(3,'g',2,2); c.on(4,'g',1,4);
     },
     walkers: [[2,35]],
-    flyers: [[512,260,260,30,6],[512,560,260,30,8]], orbs: [],
+    flyers: [[512,260,260,30,6],[512,560,260,30,8],[512,370,110,30,5]], orbs: [],
     icicles: [[0,90],[1,90]],
-    spikes: [],
+    spikes: [[3,80]],
     items: [['heart',890,520]],
   },
   // Lift city: two small pads and a sky full of moving lifts. Ride them to sweep their coin trails.
+  // Hard part: a second ghost sweeps the high gold row, so grab it between passes.
   {
     name: 'Verdis',
     theme: { sky: '#030a06', glow: '#2fc463', glow2: '#d4ff9a',
@@ -91,18 +74,19 @@ const LEVELS = [
       { x: 200, y: 330, w: 100, ax: 90, ay: 90, period: 5, phase: 2 },
     ],
     coins: c => {
-      c.row('s',190,658,7,50); c.col('g',570,360,8,42); c.row('s',640,568,7,50); c.col('g',870,190,8,40);
+      c.row('b',190,658,7,50); c.col('g',570,360,8,42); c.row('s',640,568,7,50); c.col('g',870,190,8,40);
       c.row('g',400,218,9,50);
       for (let s = -1; s <= 1; s += 0.5) c.row('s', 250 + 90 * s, 298 + 90 * s, 1);
       c.on(0,'g',2,2); c.on(1,'g',4,2);
     },
     walkers: [],
-    flyers: [[512,450,150,20,6]], orbs: [[700,420,70,60]],
+    flyers: [[512,450,150,20,6],[600,170,260,20,9]], orbs: [[700,420,70,60]],
     icicles: [[1,90]],
     spikes: [],
     items: [['burger',100,560]],
   },
   // Spiral stair: one staircase that coils around the planet, leaving the right edge and coming back on the left.
+  // Hard part: aliens on three steps and a ghost that sweeps the whole width of the stair.
   {
     name: 'Violetta',
     theme: { sky: '#07040d', glow: '#8f52ec', glow2: '#f4b9ff',
@@ -114,17 +98,18 @@ const LEVELS = [
       for (let k = 0; k < 7; k++) {
         const [x, y] = c.plat(k);
         c.on(k, k % 2 ? 's' : 'g', 2, 3);
-        if (k < 6) { const [nx, ny] = c.plat(k + 1); c.arc('s', x + 150, y - 32, nx + (nx < x ? 1024 : 0), ny - 32, 2, 50); }
+        if (k < 6) { const [nx, ny] = c.plat(k + 1); c.arc('b', x + 150, y - 32, nx + (nx < x ? 1024 : 0), ny - 32, 2, 50); }
       }
     },
-    walkers: [[2,35],[5,35]],
-    flyers: [], orbs: [[512,400,110,80]],
+    walkers: [[2,35],[5,35],[6,40]],
+    flyers: [[512,300,420,40,10]], orbs: [[512,400,110,80]],
     icicles: [[3,75],[6,75]],
     spikes: [[1,75],[4,75]],
     items: [['heart',880,330]],
   },
   // Layer cake: five floors, each with one hole. Jump up through the floors, fall down through the holes;
   // the hole in the bottom floor drops you off the screen and back onto the top floor. Mind the icicles.
+  // Hardest Venus planet: three aliens, two orbs and spikes on three floors.
   {
     name: 'Nova Prime',
     theme: { sky: '#0b040a', glow: '#ff4a86', glow2: '#ffd27a',
@@ -135,15 +120,15 @@ const LEVELS = [
            [0,310,300],[450,310,574],[0,180,640],[790,180,234]],
     movers: [],
     coins: c => {
-      c.on(0,'s',2); c.on(1,'s',3); c.stack('g',60,570,2); c.on(3,'g',4,2); c.on(4,'s',4,2); c.on(5,'s',1,2);
+      c.on(0,'b',2); c.on(1,'b',3); c.stack('g',60,570,2); c.on(3,'g',4,2); c.on(4,'s',4,2); c.on(5,'s',1,2);
       c.on(6,'g',2,2); c.on(7,'g',3,2); c.on(8,'g',3,3); c.on(9,'g',1,3);
       // a pair of coins hangs in every hole, collected on the way down
       [[512,700],[195,570],[835,440],[375,310],[715,180]].forEach(([x, y]) => c.col('g', x, y - 20, 2, 40));
     },
     walkers: [[3,60],[4,70],[7,80]],
-    flyers: [], orbs: [[300,380,120,90]],
+    flyers: [], orbs: [[300,380,120,90],[760,250,-100,110]],
     icicles: [[3,150],[3,490],[4,380],[6,120],[7,460],[8,400],[9,120]],
-    spikes: [[0,250],[1,100],[4,120]],
+    spikes: [[0,320],[1,100],[4,120]],
     items: [['heart',390,120],['burger',640,640]],
   },
 ];
@@ -161,7 +146,7 @@ const MARS = [
     coins: c => {
       c.on(0,'g',2,2); c.on(1,'s',1,3); c.on(2,'g',2,2); c.on(3,'s',1,3); c.on(4,'g',1,3); c.on(5,'s',1,3);
       c.on(6,'g',2,2); c.on(7,'s',1,3); c.on(8,'g',2,3);
-      c.arc('g',220,658,360,608,3,80); c.arc('g',480,608,620,658,3,80); c.arc('g',760,658,880,528,3,80);
+      c.arc('b',220,658,360,608,3,80); c.arc('b',480,608,620,658,3,80); c.arc('g',760,658,880,528,3,80);
       c.arc('g',880,528,720,418,3,80); c.arc('g',600,418,420,378,3,80); c.arc('g',300,378,180,288,3,80);
       c.arc('g',180,288,300,168,3,80); c.arc('g',420,168,600,188,3,80); c.arc('s',1000,528,1084,658,2,60);
     },
@@ -169,7 +154,7 @@ const MARS = [
     lava: [[290,470,3],[800,500,3.5],[510,330,4]],
     items: [['burger',100,200]],
   },
-  // The mountain: a stepped peak with golems pacing its terraces; coin rain falls past the cliffs.
+  // The mountain: a stepped peak with golems pacing three terraces; coin rain falls past the cliffs.
   {
     name: 'Olympus Mons',
     theme: { sky: '#0c0405', glow: '#d9472b', glow2: '#ffd08a', rock: MARS_ROCK,
@@ -179,14 +164,15 @@ const MARS = [
     coins: c => {
       c.stack('g',160,700,4); c.stack('g',864,700,4); c.stack('g',262,570,4); c.stack('g',762,570,4);
       c.stack('g',362,440,4); c.stack('g',662,440,4); c.stack('g',437,310,3); c.stack('g',587,310,3); c.stack('g',512,180,4);
-      c.row('s',300,668,5,106); c.row('s',380,538,4,88); c.row('s',470,408,2,84);
+      c.row('b',300,668,5,106); c.row('s',380,538,4,88); c.row('s',470,408,2,84);
       c.col('s',50,200,5,90); c.col('s',974,200,5,90);
     },
-    golems: [[0,35],[1,30]],
+    golems: [[0,35],[1,30],[2,30]],
     lava: [[56,250,3.5],[968,250,4]],
     items: [['heart',50,120]],
   },
-  // Switchbacks: four long corridors zigzag up the canyon; lava leaps at the turn and a golem guards the middle.
+  // Switchbacks: four long corridors zigzag up the canyon; lava leaps at the turn and golems guard two corridors.
+  // Hard part: spikes between the silver stacks in the second corridor, and a ghost circling the gold on the third.
   {
     name: 'Valles Marineris',
     theme: { sky: '#0a0403', glow: '#c2502e', glow2: '#ff9a6b', rock: MARS_ROCK,
@@ -194,13 +180,15 @@ const MARS = [
     start: [100, 700],
     plat: [[0,700,760],[264,560,760],[0,420,760],[264,280,760],[0,140,420]],
     coins: c => {
-      c.stack('g',60,700,4); c.stack('g',190,700,4); [380,530,680].forEach(x => c.stack('s',x,700,2));
+      c.stack('g',60,700,4); c.stack('g',190,700,4); [380,530,680].forEach(x => c.stack('b',x,700,2));
       c.stack('g',850,560,4); c.stack('g',950,560,4); [360,510,660].forEach(x => c.stack('s',x,560,2));
       c.stack('g',60,420,4); c.stack('g',190,420,4); [360,510,660].forEach(x => c.stack('s',x,420,2));
       c.stack('g',850,280,4); c.stack('g',950,280,4); c.stack('s',340,280,2);
       c.stack('g',60,140,3); c.stack('g',200,140,3);
     },
-    golems: [[2,35]],
+    golems: [[2,35],[3,35]],
+    flyers: [[130,350,70,25,5]],
+    spikes: [[1,172],[1,322]],
     lava: [[890,600,3.5]],
     items: [['heart',900,470]],
   },
@@ -214,13 +202,14 @@ const MARS = [
     coins: c => {
       c.col('g',245,300,8,50); c.col('s',505,300,8,50); c.col('g',765,300,8,50); c.col('s',1010,300,8,50);
       [4,5,6,7].forEach(i => c.on(i, i % 2 ? 's' : 'g', 1, 4));
-      [0,1,2,3].forEach(i => c.on(i, 'g', 2));
+      [0,1,2,3].forEach(i => c.on(i, 'b', 2));
     },
-    golems: [[1,35],[3,35]],
+    golems: [[1,35],[2,35],[3,35]],
     lava: [[245,250,2.6],[505,250,3.1],[765,250,2.8],[1010,250,3.4]],
     items: [['heart',505,240]],
   },
   // The frame: a ring of rock around an empty middle. A lift rises through a hoop of coins; the seam is the stair.
+  // Hard part: a ghost loops inside the hoop, crossing the lift's path.
   {
     name: 'Polar Cap',
     theme: { sky: '#0b0607', glow: '#e07a5a', glow2: '#ffe8e0', rock: ['#c58a72', '#86503c', '#3b1d14'],
@@ -230,31 +219,12 @@ const MARS = [
     movers: [{ x: 462, y: 445, w: 100, ax: 0, ay: 180, period: 6, phase: 0 }],
     coins: c => {
       c.col('g',512,245,9,42); c.ring('s',512,445,190,150,12,Math.PI / 12);
-      c.on(1,'g',4,3); c.on(0,'s',6); c.on(2,'g',2,2); c.on(3,'g',2,2); c.on(4,'g',2,2);
+      c.on(1,'g',4,3); c.on(0,'b',6); c.on(2,'g',2,2); c.on(3,'g',2,2); c.on(4,'g',2,2);
       c.col('s',60,130,5,60);
     },
     golems: [[0,40],[1,35]],
+    flyers: [[512,445,150,120,8]],
     items: [['heart',60,640]],
-  },
-  // The crown: stepping-stone pads over lava, twin lifts, and a golem guarding the crown on top. Everything at once.
-  {
-    name: 'Tharsis Core',
-    theme: { sky: '#100302', glow: '#ff3d1f', glow2: '#ffd36b', rock: ['#a85a3a', '#6e2a16', '#2e0d05'],
-      planet: { x: 150, y: 90, r: 30, kind: 'banded', c: ['#c98f4e', '#f2d6a2', '#9a5f2c', '#e6bf80'] } },
-    start: [120, 700],
-    plat: [[40,700,170],[330,620,70],[480,560,64],[630,620,70],[814,700,170],[140,280,90],[794,280,90],[362,170,300]],
-    movers: [
-      { x: 250, y: 470, w: 80, ax: 0, ay: 150, period: 5, phase: 0 },
-      { x: 694, y: 470, w: 80, ax: 0, ay: 150, period: 5, phase: Math.PI },
-    ],
-    coins: c => {
-      c.on(0,'g',3,2); c.on(4,'g',3,2); c.on(1,'s',1,4); c.on(2,'g',1,4); c.on(3,'s',1,4);
-      c.on(5,'s',1,3); c.on(6,'s',1,3); [390,460,530].forEach(x => c.stack('g',x,170,3));
-      c.col('g',290,300,7,45); c.col('g',734,300,7,45);
-    },
-    golems: [[7,40]],
-    lava: [[420,430,3],[600,430,3.4]],
-    items: [['burger',80,220],['heart',944,220]],
   },
 ];
 // LEVELS-END
@@ -264,16 +234,20 @@ LEVELS.forEach(L => { L.world = 'titan'; L.theme.art = 'titan'; });
 MARS.forEach(L => { L.world = 'mars'; L.theme.art = 'mars'; });
 CP.LEVELS = LEVELS;
 CP.WORLDS = [
-  { id: 'titan', name: 'Titan', tagline: 'Home of the grey aliens', levels: LEVELS },
+  { id: 'titan', name: 'Venus', tagline: 'Home of the grey aliens', levels: LEVELS },
   { id: 'mars', name: 'Mars', tagline: 'Rock golems and lava', levels: MARS },
 ];
 CP.world = id => CP.WORLDS.find(w => w.id === id) || CP.WORLDS[0];
 CP.ALL_LEVELS = [...LEVELS, ...MARS];
 
-// Expands a level's coins into a flat list of {x, y, k} where k is 'g' (gold) or 's' (silver).
+// Coin kinds and their points. Anything unknown counts as gold.
+CP.COIN_POINTS = { g: 10, s: 5, b: 2 };
+CP.coinKind = k => (k in CP.COIN_POINTS ? k : 'g');
+
+// Expands a level's coins into a flat list of {x, y, k} where k is 'g' (gold), 's' (silver) or 'b' (bronze).
 // Coins are either a recipe function (built-in planets) or a list of [x, y, k] (editor planets).
 CP.buildCoins = function (D) {
-  if (Array.isArray(D.coins)) return D.coins.map(([x, y, k]) => ({ x, y, k: k === 's' ? 's' : 'g' }));
+  if (Array.isArray(D.coins)) return D.coins.map(([x, y, k]) => ({ x, y, k: CP.coinKind(k) }));
   const out = [];
   const add = (x, y, k) => out.push({ x: ((x % 1024) + 1024) % 1024, y, k });
   const api = {

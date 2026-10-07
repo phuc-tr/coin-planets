@@ -15,7 +15,7 @@
    * Model shape (everything has an id so the editor can select it):
    *   plat    {id, x, y, w}                    y is the walkable top
    *   movers  {id, x, y, w, ax, ay, period, phase}
-   *   coins   {id, x, y, k}                    k: 'g' gold, 's' silver
+   *   coins   {id, x, y, k}                    k: 'g' gold, 's' silver, 'b' bronze
    *   walkers {id, plat, rx, sp}               plat = platform id, rx = offset along it
    *   icicles / spikes {id, plat, rx}
    *   flyers  {id, x, y, ax, ay, per}
@@ -164,7 +164,7 @@
         movers: pair(D.movers).filter(m => m && typeof m === 'object').map(m => ({
           x: num(m.x, 0), y: num(m.y, 0), w: Math.max(20, num(m.w, 90)), ax: num(m.ax, 0), ay: num(m.ay, 0), period: Math.max(0.5, num(m.period, 4)), phase: num(m.phase, 0),
         })),
-        coins: pair(D.coins).filter(Array.isArray).map(([x, y, k]) => [num(x, 0), num(y, 0), k === 's' ? 's' : 'g']),
+        coins: pair(D.coins).filter(Array.isArray).map(([x, y, k]) => [num(x, 0), num(y, 0), CP.coinKind(k)]),
         walkers: pair(D.walkers).filter(Array.isArray).map(([pi, sp, rx]) => [num(pi, -1), num(sp, 45), rx == null ? null : num(rx, 20)]),
         flyers: pair(D.flyers).filter(Array.isArray).map(a => [0, 1, 2, 3].map(i => num(a[i], 0)).concat([Math.max(1, num(a[4], 6))])),
         orbs: pair(D.orbs).filter(Array.isArray).map(a => [0, 1, 2, 3].map(i => num(a[i], 0))),

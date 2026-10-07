@@ -12,6 +12,7 @@
     { id: 'mover', name: 'Lift', key: '2', tex: 'mover' },
     { id: 'coin-g', name: 'Gold coin', key: '3', tex: ['coin-g', 0] },
     { id: 'coin-s', name: 'Silver coin', key: '4', tex: ['coin-s', 0] },
+    { id: 'coin-b', name: 'Bronze coin', key: '0', tex: ['coin-b', 0] },
     { id: 'walker', name: 'Alien', key: '5', tex: ['alien', 0] },
     { id: 'flyer', name: 'Ghost', key: '6', tex: ['flyer', 0] },
     { id: 'orb', name: 'Plasma orb', key: '7', tex: ['orb'] },
@@ -32,8 +33,9 @@
     mover: 'Click to add a lift. Select it to set how far it sways and how fast.',
     'coin-g': 'Click to place a gold coin (10 points), or drag to paint a row.',
     'coin-s': 'Click to place a silver coin (5 points), or drag to paint a row.',
-    walker: 'Click on a platform. Aliens patrol the platform they stand on and can be stomped.',
-    flyer: 'Click to add a ghost. It floats in a figure-eight around where you place it.',
+    'coin-b': 'Click to place a bronze coin (2 points), or drag to paint a row.',
+    walker: 'Click on a platform. Aliens patrol the platform they stand on and take two stomps: the first makes them faster.',
+    flyer: 'Click to add a ghost. It floats in a figure-eight around where you place it, and one stomp defeats it.',
     orb: 'Click to add a plasma orb. It bounces off the edges of the screen.',
     icicle: 'Click on a platform. The icicle hangs underneath it.',
     spike: 'Click on a platform to put a cluster of spikes on top of it.',
@@ -54,7 +56,7 @@
       fields: [['x', 'Left', 0, W], ['y', 'Top', 40, 760], ['w', 'Width', 40, 400], ['ax', 'Sway left/right', -500, 500], ['ay', 'Sway up/down', -300, 300], ['period', 'Seconds per round trip', 0.5, 20, 0.1], ['phase', 'Start offset', -7, 7, 0.1]],
     },
     coins: { title: 'Coin', fields: [['k', 'Metal', 'kind'], ['x', 'X', 0, W], ['y', 'Y', 0, H]] },
-    walkers: { title: 'Alien', note: 'Aliens walk back and forth along their platform.', fields: [['sp', 'Walk speed', 10, 200], ['rx', 'Position on platform', 0, W]] },
+    walkers: { title: 'Alien', note: 'Aliens walk back and forth along their platform. The first stomp makes one faster; the second finishes it for 50 points.', fields: [['sp', 'Walk speed', 10, 200], ['rx', 'Position on platform', 0, W]] },
     flyers: { title: 'Ghost', fields: [['x', 'Centre X', 0, W], ['y', 'Centre Y', 0, H], ['ax', 'Drift width', 0, 500], ['ay', 'Drift height', 0, 200], ['per', 'Seconds per loop', 1, 30, 0.5]] },
     orbs: { title: 'Plasma orb', note: 'The arrow shows where the orb travels in half a second.', fields: [['x', 'X', 0, W], ['y', 'Y', 70, 740], ['vx', 'Speed X', -400, 400], ['vy', 'Speed Y', -400, 400]] },
     icicles: { title: 'Icicle', fields: [['rx', 'Position on platform', 0, W]] },
@@ -245,7 +247,7 @@
     paint(q) {
       if (this.last && Math.hypot(q.x - this.last.x, q.y - this.last.y) < 36) return;
       if (this.M.coins.some(c => Math.hypot(c.x - q.x, c.y - q.y) < 16)) return;
-      this.M.coins.push({ id: CP.edit.nid(), x: q.x, y: q.y, k: this.tool === 'coin-s' ? 's' : 'g' });
+      this.M.coins.push({ id: CP.edit.nid(), x: q.x, y: q.y, k: this.tool.slice(5) });
       this.last = { x: q.x, y: q.y };
       this.dirty = true;
     }
@@ -382,7 +384,7 @@
           return;
         }
         case 'plat': this.mode = 'newplat'; this.drag = { x: q.x, y: q.y, x2: q.x }; return;
-        case 'coin-g': case 'coin-s': this.record(); this.mode = 'paint'; this.last = null; this.paint(q); return;
+        case 'coin-g': case 'coin-s': case 'coin-b': this.record(); this.mode = 'paint'; this.last = null; this.paint(q); return;
         case 'erase': this.record(); this.mode = 'erase'; this.eraseAt(q.rx, q.ry); return;
         default: this.place(q);
       }
@@ -572,7 +574,7 @@
         return;
       }
       const tex = {
-        mover: [CP.art.moverKey(this, 90)], 'coin-g': ['coin-g', 0], 'coin-s': ['coin-s', 0], walker: ['alien', 0], flyer: ['flyer', 0],
+        mover: [CP.art.moverKey(this, 90)], 'coin-g': ['coin-g', 0], 'coin-s': ['coin-s', 0], 'coin-b': ['coin-b', 0], walker: ['alien', 0], flyer: ['flyer', 0],
         orb: ['orb'], icicle: ['icicle'], spike: ['spike'], heart: ['heart'], burger: ['burger'], start: ['coin', 0],
         golem: ['rock', 0], boulder: ['chute'], faller: ['faller'], lava: ['lava', 0],
       }[this.tool];
@@ -737,7 +739,7 @@
         let input;
         if (min === 'kind' || min === 'item' || min === 'dir') {
           input = document.createElement('select');
-          const opts = min === 'kind' ? [['g', 'Gold (10)'], ['s', 'Silver (5)']]
+          const opts = min === 'kind' ? [['g', 'Gold (10)'], ['s', 'Silver (5)'], ['b', 'Bronze (2)']]
             : min === 'dir' ? [['1', 'Right'], ['-1', 'Left']]
             : [['heart', 'Heart (extra life)'], ['burger', 'Burger (100)']];
           opts.forEach(([v, t]) => input.add(new Option(t, v)));
@@ -769,11 +771,11 @@
     refreshStatus() {
       const s = this.scene, M = s.M, box = $('ed-status');
       box.textContent = '';
-      const gold = M.coins.filter(c => c.k === 'g').length, silver = M.coins.length - gold;
+      const count = k => M.coins.filter(c => c.k === k).length;
       const enemies = M.walkers.length + M.flyers.length + M.orbs.length + M.golems.length + M.boulders.length + M.fallers.length + M.lava.length;
       const facts = [
-        [M.coins.length, `coins (${gold} gold, ${silver} silver)`],
-        [M.coins.reduce((n, c) => n + (c.k === 'g' ? 10 : 5), 0) + 250, 'points to clear, plus bonuses'],
+        [M.coins.length, `coins (${count('g')} gold, ${count('s')} silver, ${count('b')} bronze)`],
+        [M.coins.reduce((n, c) => n + CP.COIN_POINTS[c.k], 0), 'points to clear, plus bonuses'],
         [M.plat.length + M.movers.length, 'platforms and lifts'],
         [enemies, enemies === 1 ? 'enemy' : 'enemies'],
       ];

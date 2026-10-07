@@ -2,7 +2,9 @@
 (function () {
   var CP = window.CP = window.CP || {};
   const W = 1024, H = 768, TAU = Math.PI * 2;
-  const GRAV = 1900, JUMP = 780, RUN = 250, ACC_G = 2600, ACC_A = 1600, FRIC = 3000;
+  const GRAV = 1900, JUMP = 780, RUN = 215, ACC_G = 2300, ACC_A = 1400, FRIC = 2700;
+  // how fast hazards move relative to the speeds written in levels.js (lifts, ghosts, orbs, lava; not walkers)
+  const PACE = 0.78;
   // px the baked alien walk covers per second at normal speed (rig walk groundSpeed 177.8 x bake scale 0.11)
   const ALIEN_STRIDE = 19.6;
   // same for the baked rock golem (walk groundSpeed 203.6 x bake scale 0.16)
@@ -44,7 +46,7 @@
       CP.music.duck(false);
       this.ctrl = new CP.Controls(this);
       this.state = 'intro';
-      this.clock = 0;
+      this.clock = 0; this.spawnGuard = 0;
       this.face = 1; this.buf = 0; this.coyote = 0; this.inv = 0;
       this.wasGround = true; this.lastVy = 0;
 
@@ -126,14 +128,14 @@
         const [ox, oy] = CP.art.spriteOrigin('alien');
         w.setOrigin(ox, oy);
         w.body.setSize(24, 46, false).setOffset(w.width * ox - 12, w.height * oy - 46);
-        w.kind = 'alien';
+        w.kind = 'alien'; w.hp = 2;
         w.minX = p[0] + 14; w.maxX = p[0] + p[2] - 14; w.sp = sp;
         w.dir = k % 2 ? 1 : -1;
-        w.setVelocityX(w.dir * sp);
+        w.setVelocityX(w.dir * w.sp);
         this.faceWalker(w);
         // match the walk cycle to the ground speed so the feet don't slide
         w.play({ key: 'alien-walk', startFrame: Phaser.Math.Between(0, CP.SPRITES.alien.clips.walk.count - 1) });
-        w.anims.timeScale = Phaser.Math.Clamp(sp / ALIEN_STRIDE, 0.6, 3);
+        w.anims.timeScale = Phaser.Math.Clamp(w.sp / ALIEN_STRIDE, 0.6, 3);
       });
       // rock golems (the sprite engine's Rock rig): walkers that need two stomps
       (D.golems || []).forEach(([pi, sp, rx], k) => {
@@ -146,10 +148,10 @@
         w.kind = 'golem'; w.hp = 2;
         w.minX = p[0] + 16; w.maxX = p[0] + p[2] - 16; w.sp = sp;
         w.dir = k % 2 ? 1 : -1;
-        w.setVelocityX(w.dir * sp);
+        w.setVelocityX(w.dir * w.sp);
         this.faceWalker(w);
         w.play({ key: 'rock-walk', startFrame: Phaser.Math.Between(0, CP.SPRITES.rock.clips.walk.count - 1) });
-        w.anims.timeScale = Phaser.Math.Clamp(sp / ROCK_STRIDE, 0.6, 3);
+        w.anims.timeScale = Phaser.Math.Clamp(w.sp / ROCK_STRIDE, 0.6, 3);
       });
 
       // ghosts float on a figure-eight; their bodies follow the sprite (moves = false)
@@ -166,7 +168,7 @@
       this.orbs = (D.orbs || []).map(([x, y, vx, vy]) => {
         const o = this.physics.add.image(x, y, 'orb').setDepth(12);
         o.body.setAllowGravity(false).setCircle(17, 31, 31).setBoundsRectangle(orbBounds);
-        o.setCollideWorldBounds(true).setBounce(1).setVelocity(vx, vy);
+        o.setCollideWorldBounds(true).setBounce(1).setVelocity(vx * PACE, vy * PACE);
         this.tweens.add({ targets: o, angle: 360, duration: 3000, repeat: -1 });
         return o;
       });
@@ -208,7 +210,8 @@
       this.physics.add.overlap(this.player, this.coins, (pl, c) => this.collectCoin(c));
       this.physics.add.overlap(this.player, this.items, (pl, it) => this.collectItem(it));
       this.physics.add.overlap(this.player, this.walkers, (pl, w) => this.touchWalker(w));
-      this.physics.add.overlap(this.player, [...this.hazards, ...this.flyers, ...this.orbs], () => this.hurt());
+      this.physics.add.overlap(this.player, this.flyers, (pl, f) => this.touchFlyer(f));
+      this.physics.add.overlap(this.player, [...this.hazards, ...this.orbs], () => this.hurt());
       const solids = [...this.rocks, ...this.movers];
       this.physics.add.collider(this.boulders, solids);
       this.physics.add.overlap(this.player, this.boulders, () => this.hurt());
@@ -222,7 +225,7 @@
       const em = (key, cfg) => this.add.particles(0, 0, key, Object.assign({ emitting: false }, cfg)).setDepth(30);
       const spark = tint => em('spark', { speed: { min: 60, max: 170 }, lifespan: 450, scale: { start: 0.8, end: 0.2 }, alpha: { start: 1, end: 0 }, gravityY: 300, tint });
       this.fx = {
-        g: spark(0xffd76a), s: spark(0xeef2ff), grey: spark(0xd8dbe4), red: spark(0xff5d73), orange: spark(0xffb347),
+        g: spark(0xffd76a), s: spark(0xeef2ff), b: spark(0xe0935a), grey: spark(0xd8dbe4), red: spark(0xff5d73), orange: spark(0xffb347),
         rock: em('spark', { speed: { min: 80, max: 260 }, lifespan: 750, scale: { start: 1.6, end: 0.6 }, alpha: { start: 1, end: 0 }, gravityY: 700, tint: [0xb8714a, 0x7d3d22, 0x5a2a16] }),
         ember: em('spark', { speed: { min: 60, max: 200 }, angle: { min: 230, max: 310 }, lifespan: 600, scale: { start: 1, end: 0.2 }, alpha: { start: 1, end: 0 }, gravityY: 500, tint: [0xffd36b, 0xff7a2a] }),
         hero: em('spark', { speed: { min: 100, max: 240 }, lifespan: 700, scale: { start: 1, end: 0.3 }, alpha: { start: 1, end: 0 }, gravityY: 300, tint: 0xffd21f }),
@@ -294,12 +297,15 @@
     // hurt) until the bubbles have popped. Used at level start and after every death.
     appear() {
       this.state = 'appearing';
+      this.spawnGuard = 3;
+      this.walkers.getChildren().forEach(w => { w.guarded = false; });
       const [sx, sy] = this.D.start, cy = sy - 22;
       this.player.body.enable = false;
       this.player.body.reset(sx, sy);
       this.hero.setAngle(0).setScale(1).setAlpha(0).setPosition(sx, sy).play('coin-idle');
       this.face = 1; this.buf = 0; this.wasGround = true;
       this.tweens.add({ targets: this.hero, alpha: 1, delay: 250, duration: 1000, ease: 'Sine.in' });
+      CP.sfx.bubbles();
       const bubbles = [];
       for (let i = 0; i < 18; i++) {
         const a = Math.random() * Math.PI * 2, r = 8 + Math.random() * 40;
@@ -317,6 +323,7 @@
           onComplete: () => b.destroy(),
         }));
         this.fx.bubble.explode(14, sx, cy);
+        CP.sfx.pop();
       });
       this.time.delayedCall(1600, () => {
         if (this.state !== 'appearing') return;
@@ -369,9 +376,9 @@
           break;
       }
       if (this.state === 'play' || this.state === 'dying' || this.state === 'appearing') {
-        this.clock += dt;
-        this.updateWorld(dt);
-      }
+        this.clock += dt * PACE;
+        this.updateWorld(dt * PACE);
+        }
       c.endFrame();
     }
 
@@ -383,15 +390,22 @@
         // follow the sine path by velocity, with a small correction so it never drifts
         m.body.setVelocity(cfg.ax * w * Math.cos(a) + (tx - m.x) * 8, cfg.ay * w * Math.cos(a) + (ty - m.y) * 8);
       }
+      // while the hero materialises (and a moment after), a walker heading at the spawn point turns away once,
+      // then patrols normally (turning it every time would trap it in a strip at the end of its platform)
+      this.spawnGuard -= dt;
+      const [sx, sy] = this.D.start, guard = this.spawnGuard > 0;
       this.walkers.getChildren().forEach(w => {
         if (w.dead) return;
-        if ((w.x <= w.minX && w.dir < 0) || (w.x >= w.maxX && w.dir > 0)) {
+        const nearSpawn = guard && !w.guarded && Math.abs(w.y - sy) < 8 && Math.abs(w.x - sx) < 110 && (sx - w.x) * w.dir > 0;
+        if (nearSpawn) w.guarded = true;
+        if (nearSpawn || (w.x <= w.minX && w.dir < 0) || (w.x >= w.maxX && w.dir > 0)) {
           w.dir *= -1; w.setVelocityX(w.dir * w.sp);
           this.faceWalker(w);
         }
       });
       this.updateMars(dt);
       for (const f of this.flyers) {
+        if (f.dead) continue;
         const k = f.cfg, a = TAU * t / k.per + k.ph;
         const nx = k.x + k.ax * Math.sin(a);
         f.setFlipX(nx < f.x);
@@ -585,9 +599,9 @@
 
     collectCoin(c) {
       if (this.state !== 'play') return;
-      const v = c.kind === 'g' ? 10 : 5;
+      const v = CP.COIN_POINTS[c.kind];
       this.fx[c.kind].explode(7, c.x, c.y);
-      this.floatText(c.x, c.y - 10, '+' + v, c.kind === 'g' ? '#ffe28a' : '#e6ecff');
+      this.floatText(c.x, c.y - 10, '+' + v, { g: '#ffe28a', s: '#e6ecff', b: '#ffc79a' }[c.kind]);
       c.destroy();
       this.score += v; this.left--;
       CP.sfx.coin(c.kind);
@@ -611,22 +625,28 @@
       const onTop = b.velocity.y > 60 && b.bottom - w.body.top < 22;
       // right after a stomp the hero is still touching the enemy on the way back up: that's not a hit
       if (!onTop && this.clock < (w.safeUntil || 0)) return;
-      if (onTop && w.kind === 'golem' && w.hp > 1) {
-        // first stomp cracks a golem: it keeps walking, now faster (a second stomp shatters it)
+      if (onTop && w.hp > 1) {
+        // the first stomp angers an enemy: it keeps walking, now faster (a second stomp finishes it)
+        const golem = w.kind === 'golem';
         w.hp--;
         w.safeUntil = this.clock + 0.35;
         w.sp *= 1.45;
         w.setVelocityX(w.dir * w.sp);
         w.anims.timeScale *= 1.45;
-        // white flash, then a hot orange tint marks a cracked golem
+        // white flash, then a tint marks a hurt enemy: hot orange for a cracked golem, red for an alien
         w.setTintFill(0xffffff);
-        this.time.delayedCall(90, () => w.active && w.setTint(0xff8a5c));
+        this.time.delayedCall(90, () => w.active && w.setTint(golem ? 0xff8a5c : 0xff7070));
         b.setVelocityY(this.stompBounce(w));
         this.score += 20; this.syncRegistry();
-        CP.sfx.crack();
-        this.cameras.main.shake(120, 0.004);
         this.floatText(w.x, w.y - 62, '+20', '#ffd3a0');
-        this.fx.rock.explode(8, w.x, w.y - 50);
+        if (golem) {
+          CP.sfx.crack();
+          this.cameras.main.shake(120, 0.004);
+          this.fx.rock.explode(8, w.x, w.y - 50);
+        } else {
+          CP.sfx.stomp();
+          this.fx.grey.explode(6, w.x, w.y - 40);
+        }
       } else if (onTop) {
         // stomp
         const golem = w.kind === 'golem';
@@ -639,6 +659,20 @@
         else { CP.sfx.stomp(); this.fx.grey.explode(10, w.x, w.y - 40); }
         this.floatText(w.x, w.y - 56, '+' + pts, '#ffffff');
       } else this.hurt();
+    }
+
+    // Ghosts die to a single stomp; touching one any other way hurts.
+    touchFlyer(f) {
+      if (f.dead || this.state !== 'play') return;
+      const b = this.player.body;
+      if (!(b.velocity.y > 60 && b.bottom - f.body.top < 22)) return this.hurt();
+      f.dead = true; f.body.enable = false; f.anims.stop();
+      this.tweens.add({ targets: f, scaleY: 0.2, scaleX: 1.3, alpha: 0, duration: 450, ease: 'Quad.out', onComplete: () => f.destroy() });
+      b.setVelocityY(this.stompBounce(f));
+      this.score += 50; this.syncRegistry();
+      CP.sfx.stomp();
+      this.fx.grey.explode(10, f.x, f.y);
+      this.floatText(f.x, f.y - 30, '+50', '#ffffff');
     }
 
     // Upward speed after landing on an enemy's head; holding jump bounces higher.
@@ -685,7 +719,6 @@
 
     levelClear() {
       this.state = 'complete';
-      this.score += 250; this.syncRegistry();
       if (this.mode === 'campaign') {
         const pr = CP.save.progress, id = this.worldDef.id, n = this.worldDef.levels.length;
         pr[id] = Math.max(pr[id] || 0, Math.min(n, this.levelIndex + 2));
@@ -698,8 +731,8 @@
       CP.sfx.clear();
       this.physics.pause();
       this.hero.setAlpha(1).setScale(1).play('coin-celebrate');
-      const head = CP.ui.chunky(this, 512, 320, 'Planet cleared!', 84);
-      this.overlay([head, CP.ui.label(this, 512, 388, '+250 planet bonus', 24, '#ffffff')]);
+      const head = CP.ui.chunky(this, 512, 340, 'Level completed', 84);
+      this.overlay([head]);
       head.setScale(0.5);
       this.tweens.add({ targets: head, scale: 1, duration: 500, ease: 'Back.out' });
       this.time.addEvent({ delay: 110, repeat: 24, callback: () => this.fx.confetti.explode(16, Phaser.Math.Between(80, W - 80), Phaser.Math.Between(120, 520)) });

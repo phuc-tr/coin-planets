@@ -40,7 +40,7 @@
   const tone = audio.tone;
 
   CP.sfx = {
-    coin(k) { const b = k === 'g' ? 988 : 784; tone(b, 0.05, 'square', 0.045); tone(b * 1.335, 0.12, 'square', 0.045, null, 0.05); },
+    coin(k) { const b = { g: 988, s: 784, b: 587 }[k] || 988; tone(b, 0.05, 'square', 0.045); tone(b * 1.335, 0.12, 'square', 0.045, null, 0.05); },
     jump() { tone(300, 0.16, 'sine', 0.09, 640); },
     stomp() { tone(260, 0.14, 'triangle', 0.14, 70); tone(520, 0.08, 'square', 0.04, null, 0.04); },
     die() { tone(560, 0.7, 'sawtooth', 0.06, 70); },
@@ -50,6 +50,14 @@
     crack() { tone(150, 0.16, 'square', 0.08, 60); tone(95, 0.22, 'triangle', 0.12, 45, 0.03); },
     shatter() { [220, 160, 120, 80].forEach((f, i) => tone(f, 0.12, 'square', 0.07, f * 0.5, i * 0.04)); },
     rumble() { tone(55, 0.5, 'sawtooth', 0.05, 38); },
+    // spawn: a stream of little sine blips that slide upward like rising bubbles, then the cloud pops
+    bubbles() {
+      for (let i = 0; i < 16; i++) {
+        const f = 380 + Math.random() * 520;
+        tone(f, 0.07 + Math.random() * 0.05, 'sine', 0.05, f * (1.6 + Math.random() * 0.8), i * 0.075 + Math.random() * 0.03);
+      }
+    },
+    pop() { [0, 0.04, 0.09].forEach((d, i) => tone(900 + i * 260, 0.06, 'sine', 0.07, 2200 + i * 300, d)); },
     hiss() { tone(1200, 0.22, 'sawtooth', 0.015, 300); },
   };
 

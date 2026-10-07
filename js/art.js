@@ -282,12 +282,14 @@
 
   // A spinning coin with real thickness: a ridged edge shows as it turns, the face has a raised rim,
   // a recessed centre and a glossy highlight, like the coin character's body. No outline.
-  function drawCoin(g, i, n, gold) {
+  function drawCoin(g, i, n, kind) {
     const th = i / n * TAU, cs = Math.cos(th), sn = Math.sin(th);
     const R = 9.5, Hh = 13.5, w = Math.abs(cs) * R, t = 3.4 * Math.abs(sn), side = sn >= 0 ? -1 : 1;
-    const P = gold
-      ? { hi: '#fff7cf', face: '#f8cd52', mid: '#e3a72a', low: '#b67812', edgeHi: '#f1c25a', edge: '#c88a1c', edgeLo: '#8f5a0b', inset: '#d99a22' }
-      : { hi: '#ffffff', face: '#eef1f7', mid: '#c9cfda', low: '#8f98a9', edgeHi: '#e2e6ee', edge: '#b3bac8', edgeLo: '#7a8395', inset: '#bcc3cf' };
+    const P = {
+      g: { hi: '#fff7cf', face: '#f8cd52', mid: '#e3a72a', low: '#b67812', edgeHi: '#f1c25a', edge: '#c88a1c', edgeLo: '#8f5a0b', inset: '#d99a22' },
+      s: { hi: '#ffffff', face: '#eef1f7', mid: '#c9cfda', low: '#8f98a9', edgeHi: '#e2e6ee', edge: '#b3bac8', edgeLo: '#7a8395', inset: '#bcc3cf' },
+      b: { hi: '#ffe1c2', face: '#d98b4e', mid: '#b5652f', low: '#7c3f18', edgeHi: '#d2834a', edge: '#a2582a', edgeLo: '#6a3313', inset: '#b0612d' },
+    }[kind];
     // the coin's edge (a short cylinder) on the side it is turning away from
     if (t > 0.25) {
       const x0 = Math.min(0, side * t), ew = Math.max(w, 0.8);
@@ -418,8 +420,7 @@
 
     // Textures and animations shared by every planet. Called once from the Boot scene.
     makeShared(scene) {
-      sheet(scene, 'coin-g', 24, 32, 16, (g, i) => { g.translate(12, 16); drawCoin(g, i, 16, true); });
-      sheet(scene, 'coin-s', 24, 32, 16, (g, i) => { g.translate(12, 16); drawCoin(g, i, 16, false); });
+      ['g', 's', 'b'].forEach(k => sheet(scene, 'coin-' + k, 24, 32, 16, (g, i) => { g.translate(12, 16); drawCoin(g, i, 16, k); }));
 
       sheet(scene, 'flyer', 72, 72, 6, (g, i) => { g.translate(36, 30); drawFlyer(g, Math.sin(i / 6 * TAU) * 3); });
 
@@ -461,8 +462,7 @@
       const A = scene.anims;
       const frames = (key, list) => list.map(f => (typeof f === 'number' ? { key, frame: f } : { key, frame: f[0], duration: f[1] }));
       const range = (a, b) => Array.from({ length: b - a + 1 }, (_, i) => a + i);
-      A.create({ key: 'coin-g-spin', frames: frames('coin-g', range(0, 15)), frameRate: 14, repeat: -1 });
-      A.create({ key: 'coin-s-spin', frames: frames('coin-s', range(0, 15)), frameRate: 14, repeat: -1 });
+      ['g', 's', 'b'].forEach(k => A.create({ key: `coin-${k}-spin`, frames: frames('coin-' + k, range(0, 15)), frameRate: 14, repeat: -1 }));
       A.create({ key: 'flyer-drift', frames: frames('flyer', [0, 1, 2, 3, 4, 5]), frameRate: 8, repeat: -1 });
       A.create({ key: 'lava-flicker', frames: frames('lava', [0, 1, 2]), frameRate: 12, repeat: -1 });
       // baked rig characters from the sprite engine (js/sprites.js): one animation per clip, e.g. 'coin-run'

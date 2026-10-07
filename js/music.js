@@ -31,7 +31,7 @@
       ],
       drums: { kick: [0, 7, 8], snare: [4, 12], hat: [0, 2, 4, 6, 8, 10, 12, 14] },
     },
-    // Ring Rider: a heroic C-major gallop for Titan, with a minor-key B section.
+    // Ring Rider: a heroic C-major gallop for Venus, with a minor-key B section.
     titan: {
       bpm: 140,
       chords: ['C', 'Bb', 'F', 'C', 'C', 'Bb', 'F', 'G', 'Am', 'F', 'C', 'G', 'Am', 'F', 'G', 'G'],
