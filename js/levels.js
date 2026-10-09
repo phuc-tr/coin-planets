@@ -24,7 +24,7 @@ const LEVELS = [
     movers: [],
     coins: c => {
       c.on(0,'b',3); c.on(1,'b',2,2); c.on(2,'b',2,2); c.on(3,'g',2,2); c.on(4,'g',2,2);
-      c.on(5,'g',2,3); c.on(6,'g',2,3); c.on(7,'s',2,3); c.on(8,'s',2,3); c.on(9,'g',1,4);
+      c.on(5,'g',2,3); c.on(6,'g',2,3); c.on(7,'s',2,3); c.on(8,'s',2,3); c.on(9,'g',1,2);
       // drop off either edge of the summit and fall through a coin column onto the floor
       c.col('g',414,250,6,60); c.col('g',610,250,6,60);
     },
@@ -77,7 +77,7 @@ const LEVELS = [
       c.row('b',190,658,7,50); c.col('g',570,360,8,42); c.row('s',640,568,7,50); c.col('g',870,190,8,40);
       c.row('g',400,218,9,50);
       for (let s = -1; s <= 1; s += 0.5) c.row('s', 250 + 90 * s, 298 + 90 * s, 1);
-      c.on(0,'g',2,2); c.on(1,'g',4,2);
+      c.on(0,'g',2,2); c.on(1,'g',4,1);
     },
     walkers: [],
     flyers: [[512,450,150,20,6],[600,170,260,20,9]], orbs: [[700,420,70,60]],
@@ -97,8 +97,10 @@ const LEVELS = [
     coins: c => {
       for (let k = 0; k < 7; k++) {
         const [x, y] = c.plat(k);
-        c.on(k, k % 2 ? 's' : 'g', 2, 3);
-        if (k < 6) { const [nx, ny] = c.plat(k + 1); c.arc('b', x + 150, y - 32, nx + (nx < x ? 1024 : 0), ny - 32, 2, 50); }
+        c.on(k, k % 2 ? 's' : 'g', 2, k === 6 ? 2 : 3);
+        // the hop across the seam gets one coin, clear of the edge
+        if (k === 3) c.row('b', 975, 360, 1);
+        else if (k < 6) { const [nx, ny] = c.plat(k + 1); c.arc('b', x + 150, y - 32, nx + (nx < x ? 1024 : 0), ny - 32, 2, 50); }
       }
     },
     walkers: [[2,35],[5,35],[6,40]],
@@ -148,7 +150,7 @@ const MARS = [
       c.on(6,'g',2,2); c.on(7,'s',1,3); c.on(8,'g',2,3);
       c.arc('b',220,658,360,608,3,80); c.arc('b',480,608,620,658,3,80); c.arc('g',760,658,880,528,3,80);
       c.arc('g',880,528,720,418,3,80); c.arc('g',600,418,420,378,3,80); c.arc('g',300,378,180,288,3,80);
-      c.arc('g',180,288,300,168,3,80); c.arc('g',420,168,600,188,3,80); c.arc('s',1000,528,1084,658,2,60);
+      c.arc('g',180,288,300,168,3,80); c.arc('g',420,168,600,188,3,80); c.row('s',1056,561,1);
     },
     golems: [[2,30]],
     lava: [[290,470,3],[800,500,3.5],[510,330,4]],
@@ -163,7 +165,7 @@ const MARS = [
     plat: [[112,700,800],[212,570,600],[312,440,400],[412,310,200],[462,180,100]],
     coins: c => {
       c.stack('g',160,700,4); c.stack('g',864,700,4); c.stack('g',262,570,4); c.stack('g',762,570,4);
-      c.stack('g',362,440,4); c.stack('g',662,440,4); c.stack('g',437,310,3); c.stack('g',587,310,3); c.stack('g',512,180,4);
+      c.stack('g',362,440,4); c.stack('g',662,440,4); c.stack('g',437,310,3); c.stack('g',587,310,3); c.stack('g',512,180,3);
       c.row('b',300,668,5,106); c.row('s',380,538,4,88); c.row('s',470,408,2,84);
       c.col('s',50,200,5,90); c.col('s',974,200,5,90);
     },
@@ -184,7 +186,7 @@ const MARS = [
       c.stack('g',850,560,4); c.stack('g',950,560,4); [360,510,660].forEach(x => c.stack('s',x,560,2));
       c.stack('g',60,420,4); c.stack('g',190,420,4); [360,510,660].forEach(x => c.stack('s',x,420,2));
       c.stack('g',850,280,4); c.stack('g',950,280,4); c.stack('s',340,280,2);
-      c.stack('g',60,140,3); c.stack('g',200,140,3);
+      c.stack('g',60,140,2); c.stack('g',200,140,2);
     },
     golems: [[2,35],[3,35]],
     flyers: [[130,350,70,25,5]],
@@ -200,7 +202,7 @@ const MARS = [
     start: [110, 700],
     plat: [[30,700,170],[290,700,170],[550,700,170],[810,700,180],[55,570,120],[315,570,120],[575,570,120],[840,570,120]],
     coins: c => {
-      c.col('g',245,300,8,50); c.col('s',505,300,8,50); c.col('g',765,300,8,50); c.col('s',1010,300,8,50);
+      c.col('g',245,300,8,50); c.col('s',505,300,8,50); c.col('g',765,300,8,50); c.col('s',994,300,8,50);
       [4,5,6,7].forEach(i => c.on(i, i % 2 ? 's' : 'g', 1, 4));
       [0,1,2,3].forEach(i => c.on(i, 'b', 2));
     },
@@ -227,18 +229,147 @@ const MARS = [
     items: [['heart',60,640]],
   },
 ];
+// World 3: Jupiter. Crabs, walking ones and spinning ones that fly. The Saturn backdrop for now.
+// crabs: [platformIndex, speed, offsetX?] walk like aliens, two stomps
+// spinners: [x, y, ax, ay, period, 'o'?] fly a figure-eight like ghosts (ax 0: straight up and down),
+//           or an orbit with 'o'; a negative period flies it the other way. Two stomps.
+const JUPITER_ROCK = ['#f0d49a', '#d49c58', '#74431f'];
+const JUPITER = [
+  // Satellites: one big moon slab, and small satellite pads scattered round it at odd heights; one sits
+  // across the seam, so the hop from the right-hand pad lands on the far left. A spinner orbits the open
+  // sky and guards a ring of silver; another bobs up and down in the gap you jump to leave the moon.
+  {
+    name: 'Io',
+    theme: { sky: '#0b0804', glow: '#e3b23c', glow2: '#fff0b0', rock: JUPITER_ROCK, smooth: true,
+      planet: { x: 820, y: 160, r: 60, kind: 'banded', c: ['#d9a066', '#f3dcb2', '#a8673a', '#e8c08a'] } },
+    start: [260, 600],
+    plat: [[180,600,400],[640,690,150],[860,590,130],[700,470,120],[500,370,130],[290,270,130],[10,480,120],[470,155,130]],
+    coins: c => {
+      c.on(0,'b',6,2); c.on(1,'g',2,2); c.on(2,'g',2,2); c.on(3,'s',1,3); c.on(4,'s',2,2); c.on(5,'s',2,2);
+      c.on(6,'g',1,3); c.on(7,'g',2,2);
+      // arcs trace each hop round the satellites; one coin marks the hop across the seam
+      c.arc('b',560,560,660,650,2,60); c.arc('b',780,650,880,550,2,70); c.arc('s',870,550,800,430,2,60);
+      c.arc('s',710,430,620,330,2,60); c.arc('s',510,330,410,230,2,60); c.arc('g',400,230,490,115,2,60);
+      c.row('g',975,480,1);
+      c.ring('s',790,350,90,60,8);
+      c.col('b',150,440,4,40); c.row('g',305,160,3,50);
+    },
+    crabs: [[0,40,300]],
+    spinners: [[790,350,90,60,7,'o'],[610,480,0,60,8]],
+    spikes: [[2,65]],
+    items: [['burger',70,300]],
+  },
+  // Elevators: three lifts rise and fall out of step, and they are the only way up. Spinners bob in the
+  // shafts between them, so every transfer is timed twice: lift height and spinner height. The top lift
+  // drops you at the seam, onto the high ledge on the far left.
+  {
+    name: 'Europa',
+    theme: { sky: '#05080c', glow: '#c9a46a', glow2: '#f5e6c8', rock: JUPITER_ROCK, smooth: true,
+      planet: { x: 820, y: 160, r: 60, kind: 'banded', c: ['#d9a066', '#f3dcb2', '#a8673a', '#e8c08a'] } },
+    start: [100, 700],
+    plat: [[40,700,330],[180,440,160],[0,170,210],[780,700,200]],
+    movers: [
+      { x: 420, y: 560, w: 100, ax: 0, ay: 130, period: 5, phase: 0 },
+      { x: 640, y: 430, w: 100, ax: 0, ay: 140, period: 5.5, phase: Math.PI },
+      { x: 860, y: 330, w: 100, ax: 0, ay: 150, period: 6, phase: 1 },
+    ],
+    coins: c => {
+      c.on(0,'b',4,3); c.on(1,'s',2,3); c.on(2,'g',3,2); c.on(3,'b',3,3);
+      // ride a lift to sweep its column
+      c.col('s',470,410,7,40); c.col('s',690,270,8,40); c.col('g',910,150,8,40);
+      // gold hangs in the spinners' shafts
+      c.col('g',580,420,4,50); c.col('g',800,280,4,50);
+      c.row('g',985,120,1); c.row('s',40,62,3,30);
+    },
+    crabs: [[0,40,250],[2,35],[3,45]],
+    spinners: [[580,520,0,150,12],[800,380,0,150,13]],
+    spikes: [[0,150],[2,150]],
+    items: [['heart',260,380]],
+  },
+  // Downhill: nothing climbs. You start at the top, and every pad lies below and beside the last, so you
+  // walk off an edge and drop, through a coin column hanging in each drop shaft, onto a crab waiting on
+  // the landing (land on it to stomp). One branch runs down to the right, the other down the left. The
+  // only way back up is to fall off the bottom or across the seam and drop back in at the top.
+  {
+    name: 'Ganymede',
+    theme: { sky: '#070605', glow: '#b88c5a', glow2: '#efd8b4', rock: JUPITER_ROCK, smooth: true,
+      planet: { x: 820, y: 160, r: 60, kind: 'banded', c: ['#d9a066', '#f3dcb2', '#a8673a', '#e8c08a'] } },
+    start: [100, 140],
+    plat: [[60,140,220],[330,330,180],[570,520,190],[820,700,204],[20,560,200],[260,720,240]],
+    coins: c => {
+      c.on(0,'b',3,2); c.on(1,'s',3,2); c.on(2,'g',3,2); c.on(3,'g',2,3); c.on(4,'s',2,3); c.on(5,'b',3,2);
+      // a coin column in every drop shaft
+      c.col('g',305,180,4,40); c.col('g',540,370,4,40); c.col('g',790,560,4,36);
+      c.col('s',40,200,6,40); c.col('s',240,600,3,40);
+      // the way back in at the top: off the right of the low pad and across the seam, or off the floor's end
+      c.col('b',38,64,3,34); c.col('s',490,60,5,40);
+    },
+    crabs: [[1,40],[2,45],[3,45,60],[5,40]],
+    spinners: [[200,330,150,25,9],[650,440,120,20,7],[790,590,0,45,7]],
+    spikes: [[4,100],[3,100]],
+    items: [['heart',15,320]],
+  },
+  // Spike garden: three long terraces studded with spikes in a steady rhythm, climbing in a lopsided
+  // zigzag (the middle one runs across the seam). The gold stands in the gaps between spikes, so you hop
+  // spike to spike and land in each gap, while big crabs patrol through the rows. Spinners sweep over the
+  // low terrace and bob down onto the top one.
+  {
+    name: 'Callisto',
+    theme: { sky: '#060504', glow: '#a87a4e', glow2: '#e6caa0', rock: JUPITER_ROCK, smooth: true,
+      planet: { x: 820, y: 160, r: 60, kind: 'banded', c: ['#d9a066', '#f3dcb2', '#a8673a', '#e8c08a'] } },
+    start: [40, 710],
+    plat: [[0,710,560],[600,605,120],[760,495,264],[0,495,200],[240,390,120],[400,280,520],[250,175,110]],
+    coins: c => {
+      // gold towers stand in the gaps between spike sets, never over a spike
+      [210,350].forEach(x => c.stack('g',x,710,4)); [70,490].forEach(x => c.stack('b',x,710,3));
+      [565,695].forEach(x => c.stack('g',x,280,4)); [435,830,900].forEach(x => c.stack('s',x,280,3));
+      [800,970].forEach(x => c.stack('s',x,495,3)); [40,160].forEach(x => c.stack('s',x,495,3));
+      c.on(1,'g',1,4); c.on(4,'g',1,4); c.on(6,'g',2,3);
+    },
+    crabs: [[0,45,300],[2,50],[5,45,150],[5,55,420]],
+    spinners: [[300,560,200,30,9],[565,190,0,60,8],[830,190,0,60,9.5]],
+    spikes: [[0,140],[0,280],[0,420],[2,130],[3,100],[5,100],[5,230],[5,360]],
+    items: [['heart',305,100]],
+  },
+  // The vortex: a broken spiral of pads climbs round the storm toward the eye, a small pad in the middle
+  // with a gold tower. Two rings of spinners orbit the eye in opposite directions: the inner one circles
+  // the tower, the outer one sweeps the side pads. Leave the eye by the right and drop down to the floor
+  // that runs across the seam back to the start.
+  {
+    name: 'Great Red Spot',
+    theme: { sky: '#0c0504', glow: '#d0643c', glow2: '#ffcf9a', rock: JUPITER_ROCK, smooth: true,
+      planet: { x: 820, y: 160, r: 60, kind: 'banded', c: ['#d9a066', '#f3dcb2', '#a8673a', '#e8c08a'] } },
+    start: [80, 700],
+    plat: [[40,700,240],[320,595,130],[120,485,150],[330,380,110],[555,430,90],[720,540,120],[720,310,110],[560,200,130],[880,700,144]],
+    coins: c => {
+      c.on(4,'g',1,4);
+      c.ring('g',600,400,130,95,8,Math.PI / 8);
+      c.ring('s',600,400,250,185,12,Math.PI / 12);
+      c.on(0,'b',3,2); c.stack('b',340,595,2); c.on(2,'s',2,2); c.on(3,'s',1,3); c.on(5,'g',2,2); c.on(6,'g',2,2);
+      c.on(7,'g',2,3); c.on(8,'b',2,2);
+      // the leap into the eye and the drop out of it
+      c.arc('g',440,348,555,398,3,70); c.arc('g',645,398,720,508,2,40);
+    },
+    crabs: [[8,35]],
+    spinners: [[600,400,130,95,6,'o'],[600,400,250,185,-9,'o']],
+    spikes: [[2,75],[7,65]],
+    items: [['heart',640,130]],
+  },
+];
 // LEVELS-END
 
-// painted backdrops (img/bg-*.jpg): Titan's ringed sky for the alien stages, the red rock plain for Mars
+// painted backdrops (img/bg-*.jpg): Titan's ringed sky for the alien stages (and Jupiter, for now), the red rock plain for Mars
 LEVELS.forEach(L => { L.world = 'titan'; L.theme.art = 'titan'; });
 MARS.forEach(L => { L.world = 'mars'; L.theme.art = 'mars'; });
+JUPITER.forEach(L => { L.world = 'jupiter'; L.theme.art = 'titan'; });
 CP.LEVELS = LEVELS;
 CP.WORLDS = [
   { id: 'titan', name: 'Venus', tagline: 'Home of the grey aliens', levels: LEVELS },
   { id: 'mars', name: 'Mars', tagline: 'Rock golems and lava', levels: MARS },
+  { id: 'jupiter', name: 'Jupiter', tagline: 'Crabs on the cloud belts', levels: JUPITER, music: 'titan' },
 ];
 CP.world = id => CP.WORLDS.find(w => w.id === id) || CP.WORLDS[0];
-CP.ALL_LEVELS = [...LEVELS, ...MARS];
+CP.ALL_LEVELS = [...LEVELS, ...MARS, ...JUPITER];
 
 // Coin kinds and their points. Anything unknown counts as gold.
 CP.COIN_POINTS = { g: 10, s: 5, b: 2 };
@@ -246,16 +377,18 @@ CP.coinKind = k => (k in CP.COIN_POINTS ? k : 'g');
 
 // Expands a level's coins into a flat list of {x, y, k} where k is 'g' (gold), 's' (silver) or 'b' (bronze).
 // Coins are either a recipe function (built-in planets) or a list of [x, y, k] (editor planets).
+// Coins stay this far from the left and right screen edges (and below y = 60, clear of the HUD).
+const EDGE = 30;
 CP.buildCoins = function (D) {
   if (Array.isArray(D.coins)) return D.coins.map(([x, y, k]) => ({ x, y, k: CP.coinKind(k) }));
   const out = [];
   const add = (x, y, k) => out.push({ x: ((x % 1024) + 1024) % 1024, y, k });
   const api = {
     plat: i => D.plat[i],
-    // n coins spread along platform i, each one a column h coins tall
+    // n coins spread along platform i, each one a column h coins tall, kept EDGE px clear of the screen sides
     on(i, k, n, h) {
-      const [x, y, w] = D.plat[i], pad = 20;
-      for (let j = 0; j < n; j++) api.stack(k, x + pad + (w - 2 * pad) * (n === 1 ? 0.5 : j / (n - 1)), y, h);
+      const [x, y, w] = D.plat[i], x0 = Math.max(x + 20, EDGE), x1 = Math.min(x + w - 20, 1024 - EDGE);
+      for (let j = 0; j < n; j++) api.stack(k, x0 + (x1 - x0) * (n === 1 ? 0.5 : j / (n - 1)), y, h);
     },
     // a column of h coins standing on a surface whose top is at y
     stack(k, x, y, h) { for (let j = 0; j < (h || 1); j++) add(x, y - 32 - j * 38, k); },

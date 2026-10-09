@@ -171,11 +171,11 @@
   }
 
   // Slab colours: grey moon rock by default, or a theme's own [top, middle, bottom].
-  // Slab colours: grey moon rock by default, or a theme's own [top, middle, bottom].
   const GREY_ROCK = ['#7a7a82', '#55555d', '#2a2a30'];
 
   // A rock slab texture of (w + 8) x 44; the walkable top edge sits at y = 4.
-  function makeRock(w, rng, pal) {
+  // Smooth slabs (Jupiter) trade the speckles and cracks for soft cloud bands.
+  function makeRock(w, rng, pal, smooth) {
     pal = pal || GREY_ROCK;
     const c = mk(w + 8, 44), g = c.getContext('2d');
     const pts = [];
@@ -192,6 +192,17 @@
     gr.addColorStop(0, pal[0]); gr.addColorStop(0.35, pal[1]); gr.addColorStop(1, pal[2]);
     g.fillStyle = gr; g.fill();
     g.save(); path(); g.clip();
+    if (smooth) {
+      for (let y = 8; y < 34; y += 5 + rng() * 4) {
+        const h = 2 + rng() * 3, light = rng() < 0.5;
+        g.fillStyle = light ? `rgba(255,240,210,${0.1 + rng() * 0.12})` : `rgba(90,40,10,${0.1 + rng() * 0.14})`;
+        g.beginPath(); g.moveTo(0, y);
+        for (let x = 0; x <= w + 8; x += 12) g.lineTo(x, y + Math.sin(x / 23 + y) * 1.2);
+        for (let x = w + 8; x >= 0; x -= 12) g.lineTo(x, y + h + Math.sin(x / 19 + y) * 1.2);
+        g.fill();
+      }
+      g.restore();
+    } else {
     for (let i = 0; i < w * 1.8; i++) {
       const x = 4 + rng() * w, y = 2 + rng() * 34, r = 0.5 + rng() * 2;
       g.fillStyle = rng() < 0.5 ? `rgba(255,255,255,${0.04 + rng() * 0.13})` : `rgba(0,0,0,${0.12 + rng() * 0.28})`;
@@ -203,6 +214,7 @@
       g.beginPath(); g.moveTo(x, y); g.lineTo(x + 4 + rng() * 6, y + (rng() - 0.5) * 6); g.stroke();
     }
     g.restore();
+    }
     g.strokeStyle = 'rgba(255,255,255,0.28)'; g.lineWidth = 1.4;
     g.beginPath(); let first = true;
     for (const p of pts) { if (p[1] > 7) continue; first ? g.moveTo(p[0], p[1] + 0.6) : g.lineTo(p[0], p[1] + 0.6); first = false; }
@@ -480,8 +492,9 @@
     },
     rockKey(scene, w, variant, theme) {
       w = Math.max(20, Math.round(w));
-      const pal = theme && theme.rock, key = `rock-${w}-${variant}` + (pal ? '-' + hashStr(pal.join()) : '');
-      if (!scene.textures.exists(key)) scene.textures.addCanvas(key, makeRock(w, mulberry(w * 131 + variant * 977 + 3), pal));
+      const pal = theme && theme.rock, smooth = !!(theme && theme.smooth);
+      const key = `rock-${w}-${variant}` + (pal ? '-' + hashStr(pal.join()) : '') + (smooth ? '-smooth' : '');
+      if (!scene.textures.exists(key)) scene.textures.addCanvas(key, makeRock(w, mulberry(w * 131 + variant * 977 + 3), pal, smooth));
       return key;
     },
     moverKey(scene, w) {

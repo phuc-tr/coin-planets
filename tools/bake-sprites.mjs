@@ -35,17 +35,31 @@ const SPEC = [
     ],
   },
   {
-    key: 'alien', project: 'projects/alien.json', scale: 0.11,
+    key: 'alien', project: 'projects/alien.json', scale: 0.121,
     clips: [
       { name: 'idle', clip: 'idle', fps: 12 },
       { name: 'walk', clip: 'walk', fps: 16 },
     ],
   },
   {
-    key: 'rock', project: 'projects/rock.json', scale: 0.16,
+    key: 'rock', project: 'projects/rock.json', scale: 0.176,
     clips: [
       { name: 'idle', clip: 'idle', fps: 12 },
       { name: 'walk', clip: 'walk', fps: 16 },
+    ],
+  },
+  {
+    key: 'crab', project: 'projects/crab.json', scale: 0.206,
+    clips: [
+      { name: 'idle', clip: 'idle', fps: 12 },
+      { name: 'walk', clip: 'walk', fps: 16 },
+    ],
+  },
+  // the spinning crab floats, so its turntable gets its own sheet sized to the spin alone
+  {
+    key: 'crabspin', project: 'projects/crab.json', scale: 0.206,
+    clips: [
+      { name: 'spin', clip: 'spin', fps: 20 },
     ],
   },
 ];

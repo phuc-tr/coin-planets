@@ -76,12 +76,13 @@
   window.addEventListener('pointerdown', () => audio.unlock());
 
   const SAVE_KEY = 'coin-planets-v1';
-  // progress = how many levels of each world are open; both worlds start with level 1 open
+  // progress = how many levels of each world are open; every world starts with level 1 open
   CP.save = { best: 0, progress: null };
   try { const s = JSON.parse(localStorage.getItem(SAVE_KEY)); if (s) Object.assign(CP.save, s); } catch (e) {}
   if (!CP.save.progress) CP.save.progress = { titan: CP.save.unlocked || 1, mars: 1 };
   CP.save.progress.titan = Math.max(1, CP.save.progress.titan || 0);
   CP.save.progress.mars = Math.max(1, CP.save.progress.mars || 0);
+  CP.save.progress.jupiter = Math.max(1, CP.save.progress.jupiter || 0);
   delete CP.save.unlocked;
   CP.persist = function () { try { localStorage.setItem(SAVE_KEY, JSON.stringify(CP.save)); } catch (e) {} };
 })();

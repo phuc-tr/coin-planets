@@ -3,12 +3,20 @@
   var CP = window.CP = window.CP || {};
   const W = 1024, H = 768, TAU = Math.PI * 2;
   const GRAV = 1900, JUMP = 780, RUN = 215, ACC_G = 2300, ACC_A = 1400, FRIC = 2700;
+  // falling is 10% slower than rising: gravity and top speed on the way down are scaled by FALL
+  const FALL = 0.9, MAX_FALL = 950 * FALL;
   // how fast hazards move relative to the speeds written in levels.js (lifts, ghosts, orbs, lava; not walkers)
   const PACE = 0.78;
-  // px the baked alien walk covers per second at normal speed (rig walk groundSpeed 177.8 x bake scale 0.11)
-  const ALIEN_STRIDE = 19.6;
-  // same for the baked rock golem (walk groundSpeed 203.6 x bake scale 0.16)
-  const ROCK_STRIDE = 32.6;
+  // px the baked alien walk covers per second at normal speed (rig walk groundSpeed 177.8 x bake scale 0.121)
+  const ALIEN_STRIDE = 21.5;
+  // same for the baked rock golem (walk groundSpeed 203.6 x bake scale 0.176)
+  const ROCK_STRIDE = 35.8;
+  // every walker (alien, golem, crab) patrols this much faster than the speed written in levels.js
+  const WALK_PACE = 1.1;
+  // same for the baked crab's sideways scuttle (walk groundSpeed 144 x bake scale 0.206)
+  const CRAB_STRIDE = 29.7;
+  // crabs animate slower than their stride would give: a lazier scuttle and spin
+  const CRAB_ANIM = 0.7;
 
   // Platforms are solid only from above, so the player can jump up through them.
   function oneWay(body) {
@@ -42,12 +50,12 @@
       const D = this.D, th = D.theme;
       const keys = CP.art.ensureLevel(this, D);
       // each planet has its own loop; your own planets pick one by their rocks
-      CP.music.play(this.worldDef && this.worldDef.id === 'mars' || th.rock ? 'mars' : 'titan');
+      CP.music.play(this.worldDef && this.worldDef.music || (this.worldDef && this.worldDef.id === 'mars' || th.rock ? 'mars' : 'titan'));
       CP.music.duck(false);
       this.ctrl = new CP.Controls(this);
       this.state = 'intro';
       this.clock = 0; this.spawnGuard = 0;
-      this.face = 1; this.buf = 0; this.coyote = 0; this.inv = 0;
+      this.face = 1; this.buf = 0; this.coyote = 0; this.inv = 0; this.standT = 0; this.grounded = false; this.bouncing = false;
       this.wasGround = true; this.lastVy = 0;
 
       this.physics.world.setBounds(0, -300, W, H + 600, true, true, false, false);
@@ -127,9 +135,9 @@
         const w = this.walkers.create(p[0] + (rx != null ? rx : p[2] * (k % 2 ? 0.3 : 0.7)), p[1], 'alien').setDepth(10);
         const [ox, oy] = CP.art.spriteOrigin('alien');
         w.setOrigin(ox, oy);
-        w.body.setSize(24, 46, false).setOffset(w.width * ox - 12, w.height * oy - 46);
+        w.body.setSize(26, 51, false).setOffset(w.width * ox - 13, w.height * oy - 51);
         w.kind = 'alien'; w.hp = 2;
-        w.minX = p[0] + 14; w.maxX = p[0] + p[2] - 14; w.sp = sp;
+        w.minX = p[0] + 15; w.maxX = p[0] + p[2] - 15; w.sp = sp * WALK_PACE;
         w.dir = k % 2 ? 1 : -1;
         w.setVelocityX(w.dir * w.sp);
         this.faceWalker(w);
@@ -144,9 +152,9 @@
         const w = this.walkers.create(p[0] + (rx != null ? rx : p[2] * (k % 2 ? 0.3 : 0.7)), p[1], 'rock').setDepth(10);
         const [ox, oy] = CP.art.spriteOrigin('rock');
         w.setOrigin(ox, oy);
-        w.body.setSize(36, 50, false).setOffset(w.width * ox - 18, w.height * oy - 50);
+        w.body.setSize(40, 55, false).setOffset(w.width * ox - 20, w.height * oy - 55);
         w.kind = 'golem'; w.hp = 2;
-        w.minX = p[0] + 16; w.maxX = p[0] + p[2] - 16; w.sp = sp;
+        w.minX = p[0] + 18; w.maxX = p[0] + p[2] - 18; w.sp = sp * WALK_PACE;
         w.dir = k % 2 ? 1 : -1;
         w.setVelocityX(w.dir * w.sp);
         this.faceWalker(w);
@@ -154,13 +162,44 @@
         w.anims.timeScale = Phaser.Math.Clamp(w.sp / ROCK_STRIDE, 0.6, 3);
       });
 
-      // ghosts float on a figure-eight; their bodies follow the sprite (moves = false)
+      // Jupiter crabs (the sprite engine's Crab rig): walkers that scuttle sideways, two stomps like aliens
+      (D.crabs || []).forEach(([pi, sp, rx], k) => {
+        const p = D.plat[pi];
+        if (!p) return;
+        const w = this.walkers.create(p[0] + (rx != null ? rx : p[2] * (k % 2 ? 0.3 : 0.7)), p[1], 'crab').setDepth(10);
+        const [ox, oy] = CP.art.spriteOrigin('crab');
+        w.setOrigin(ox, oy);
+        w.body.setSize(88, 50, false).setOffset(w.width * ox - 44, w.height * oy - 50);
+        w.kind = 'crab'; w.hp = 2;
+        w.minX = p[0] + 42; w.maxX = p[0] + p[2] - 42; w.sp = sp * WALK_PACE;
+        w.dir = k % 2 ? 1 : -1;
+        w.setVelocityX(w.dir * w.sp);
+        this.faceWalker(w);
+        w.play({ key: 'crab-walk', startFrame: Phaser.Math.Between(0, CP.SPRITES.crab.clips.walk.count - 1) });
+        w.anims.timeScale = Phaser.Math.Clamp(w.sp / CRAB_STRIDE, 0.6, 4) * CRAB_ANIM;
+      });
+
+      // ghosts float on a figure-eight; their bodies follow the sprite (moves = false).
+      // Spinning crabs fly the same path but take two stomps.
       this.flyers = (D.flyers || []).map(([x, y, ax, ay, per]) => {
         const f = this.physics.add.sprite(x, y, 'flyer').setDepth(11).play('flyer-drift');
         f.body.setAllowGravity(false); f.body.moves = false;
         f.body.setCircle(15, 21, 15);
+        f.kind = 'ghost'; f.hp = 1;
         f.cfg = { x, y, ax, ay, per, ph: Math.random() * TAU };
         return f;
+      });
+      // A sixth value 'o' flies an orbit (ellipse) instead; ax 0 makes a pure up-and-down bob,
+      // and a negative period flies the path the other way round.
+      (D.spinners || []).forEach(([x, y, ax, ay, per, shape]) => {
+        const f = this.physics.add.sprite(x, y, 'crabspin').setDepth(11);
+        f.play({ key: 'crabspin-spin', startFrame: Phaser.Math.Between(0, CP.SPRITES.crabspin.clips.spin.count - 1) });
+        f.body.setAllowGravity(false); f.body.moves = false;
+        f.body.setSize(88, 46).setOffset(f.width / 2 - 44, f.height / 2 - 20);
+        f.anims.timeScale = CRAB_ANIM;
+        f.kind = 'spinner'; f.hp = 2;
+        f.cfg = { x, y, ax, ay, per, orbit: shape === 'o', ph: Math.random() * TAU };
+        this.flyers.push(f);
       });
 
       // plasma orbs bounce around the play area
@@ -206,7 +245,12 @@
       // copies of the hero drawn on the opposite edges while it straddles the screen wrap
       this.heroGhosts = [0, 1, 2].map(() => this.add.sprite(0, 0, 'coin', 0).setOrigin(hox, hoy).setDepth(20).setVisible(false));
 
-      this.physics.add.collider(this.player, [...this.rocks, ...this.movers], null, () => this.state === 'play');
+      // standing is read from this collider alone: Arcade also sets body.touching on plain overlaps
+      // (coins, enemies), which would otherwise count as ground and give a free mid-air jump
+      this.physics.add.collider(this.player, [...this.rocks, ...this.movers], (pl, r) => {
+        // held a little over one 120 Hz physics step, so frames that run no step still see the ground
+        if (pl.body.touching.down && pl.body.bottom <= r.body.top + 2) this.standT = 0.02;
+      }, () => this.state === 'play');
       this.physics.add.overlap(this.player, this.coins, (pl, c) => this.collectCoin(c));
       this.physics.add.overlap(this.player, this.items, (pl, it) => this.collectItem(it));
       this.physics.add.overlap(this.player, this.walkers, (pl, w) => this.touchWalker(w));
@@ -406,14 +450,16 @@
       this.updateMars(dt);
       for (const f of this.flyers) {
         if (f.dead) continue;
-        const k = f.cfg, a = TAU * t / k.per + k.ph;
+        // the phase advances by time (not t / per) so an angry spinner can speed up without jumping
+        const k = f.cfg, a = (k.ph += TAU * dt / k.per);
+        if (k.orbit) { f.setPosition(k.x + k.ax * Math.cos(a), k.y + k.ay * Math.sin(a)); continue; }
         const nx = k.x + k.ax * Math.sin(a);
-        f.setFlipX(nx < f.x);
+        if (f.kind === 'ghost') f.setFlipX(nx < f.x);
         f.setPosition(nx, k.y + k.ay * Math.sin(2 * a));
       }
     }
 
-    // Alien and golem art both face screen-right; mirror them when walking left.
+    // Alien, golem and crab art all face screen-right; mirror them when walking left.
     faceWalker(w) { w.setFlipX(w.dir < 0); }
 
     updateMars(dt) {
@@ -496,7 +542,8 @@
 
     updatePlayer(dt) {
       const c = this.ctrl, b = this.player.body;
-      const onGround = b.blocked.down || b.touching.down;
+      const onGround = this.standT > 0;
+      this.grounded = onGround; this.standT -= dt;
       const dir = (c.held('right') ? 1 : 0) - (c.held('left') ? 1 : 0);
 
       if (dir) {
@@ -519,8 +566,10 @@
         this.fx.dust.explode(5, this.player.x, this.player.y);
         this.squash(0.86, 1.16);
       }
-      // releasing jump early cuts the jump short
-      b.setGravityY(b.velocity.y < 0 && !c.held('jump') ? GRAV * 1.3 : 0);
+      // releasing jump early cuts a jump short (not a stomp bounce); on the way down the hero falls a little floatier
+      if (this.bouncing && (b.velocity.y >= 0 || onGround)) this.bouncing = false;
+      b.setGravityY(b.velocity.y < 0 ? (c.held('jump') || this.bouncing ? 0 : GRAV * 1.3) : -GRAV * (1 - FALL));
+      if (b.velocity.y > MAX_FALL) b.setVelocityY(MAX_FALL);
 
       if (onGround && !this.wasGround && this.lastVy > 380) {
         this.squash(1 + Math.min(0.2, this.lastVy / 4000), 1 - Math.min(0.2, this.lastVy / 4000));
@@ -575,7 +624,7 @@
       const h = this.hero, b = this.player.body;
       h.setPosition(this.player.x, this.player.y).setFlipX(this.face < 0);
       if (this.state !== 'play') return this.drawHeroGhosts();
-      const onGround = b.blocked.down || b.touching.down || this.coyote > 0.05;
+      const onGround = this.grounded || this.coyote > 0.05;
       const vx = Math.abs(b.velocity.x);
       if (!onGround) {
         // airborne frames of the coin's jump (takeoff stretch to landing reach), picked by vertical speed
@@ -661,26 +710,44 @@
       } else this.hurt();
     }
 
-    // Ghosts die to a single stomp; touching one any other way hurts.
+    // Ghosts die to a single stomp, spinning crabs to two; touching one any other way hurts.
     touchFlyer(f) {
       if (f.dead || this.state !== 'play') return;
       const b = this.player.body;
-      if (!(b.velocity.y > 60 && b.bottom - f.body.top < 22)) return this.hurt();
+      const onTop = b.velocity.y > 60 && b.bottom - f.body.top < 22;
+      if (!onTop && this.clock < (f.safeUntil || 0)) return;
+      if (!onTop) return this.hurt();
+      if (f.hp > 1) {
+        // the first stomp angers a spinner: red, spinning faster and flying its loop faster
+        f.hp--;
+        f.safeUntil = this.clock + 0.35;
+        f.cfg.per /= 1.45;
+        f.anims.timeScale *= 1.6;
+        f.setTintFill(0xffffff);
+        this.time.delayedCall(90, () => f.active && f.setTint(0xff7070));
+        b.setVelocityY(this.stompBounce(f));
+        this.score += 20; this.syncRegistry();
+        CP.sfx.stomp();
+        this.fx.grey.explode(6, f.x, f.y);
+        this.floatText(f.x, f.y - 30, '+20', '#ffd3a0');
+        return;
+      }
+      const pts = f.kind === 'spinner' ? 100 : 50;
       f.dead = true; f.body.enable = false; f.anims.stop();
       this.tweens.add({ targets: f, scaleY: 0.2, scaleX: 1.3, alpha: 0, duration: 450, ease: 'Quad.out', onComplete: () => f.destroy() });
       b.setVelocityY(this.stompBounce(f));
-      this.score += 50; this.syncRegistry();
+      this.score += pts; this.syncRegistry();
       CP.sfx.stomp();
       this.fx.grey.explode(10, f.x, f.y);
-      this.floatText(f.x, f.y - 30, '+50', '#ffffff');
+      this.floatText(f.x, f.y - 30, '+' + pts, '#ffffff');
     }
 
-    // Upward speed after landing on an enemy's head; holding jump bounces higher.
-    // Rock golems throw you a bit higher than a normal jump; aliens give a small hop.
-    stompBounce(w) {
-      const held = this.ctrl.held('jump');
-      if (w.kind === 'golem') return -JUMP * (held ? 1.12 : 1.0);
-      return -JUMP * (held ? 0.85 : 0.6);
+    // Upward speed after landing on an enemy's head. A stomp is a bounce, not a jump: about 50px high
+    // off every enemy, whatever you do with the jump button, and it can't be jumped out of again.
+    stompBounce() {
+      this.bouncing = true;
+      this.buf = 0; this.coyote = 0;
+      return -JUMP * 0.55;
     }
 
     hurt() { if (this.inv <= 0 && this.state === 'play') this.die(); }
