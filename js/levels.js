@@ -12,6 +12,130 @@ var CP = window.CP = window.CP || {};
 //       drop onto it and it flings you about 330px up (a jump is 160), so stack a coin column above it.
 // Every planet is built around one idea, noted above it. The screen wraps left/right, and falling
 // off the bottom drops you back in from the top, so several planets are laid out across those seams.
+// World 0: Mercury, the scorched first planet. Two kinds of golem, among dark crags veined with blue.
+// tripods:  [platformIndex, speed, offsetX?] golems that patrol their slab like aliens. Two stomps.
+// chargers: [platformIndex, side, wait?] golems that rest at one end of their slab (side 0 left, 1 right),
+//           paw the ground, charge to the other end faster than the hero runs, skid, rest and charge
+//           back, forever. They ignore the hero. `wait` is the first rest in seconds (default 1). Two stomps.
+// hard grey rock veined with the golems' glowing blue
+const MERCURY_ROCK = ['#6e7077', '#4b4c52', '#2a2a2f'];
+const MERCURY_PLANET = { kind: 'cratered', c: ['#9a948c', '#b8b2aa', '#6a645c', '#d0cac2'] };
+const MERCURY = [
+  // Split floor: a floor cut by a hole, a tripod pacing each half of the level. Bounce pads under both
+  // high ledges, and a summit over the hole: walk off it and fall through the hole back in from the top.
+  {
+    name: 'Kuiper',
+    theme: { sky: '#0b0705', glow: '#ff9a3c', glow2: '#fff0c8', rock: MERCURY_ROCK, accent: '#38b6ff',
+      planet: Object.assign({ x: 880, y: 120, r: 30 }, MERCURY_PLANET) },
+    start: [80, 700],
+    plat: [[0,700,440],[584,700,440],[120,470,260],[644,470,260],[462,360,100]],
+    coins: c => {
+      [70,160,340,410].forEach(x => c.stack('b',x,700,2));
+      [640,700,860,930,990].forEach(x => c.stack('g',x,700,2));
+      // the pad columns
+      [250,774].forEach(x => { c.col('s',x,320,3,45); c.col('s',x,520,4,45); });
+      [150,350].forEach(x => c.stack('g',x,470,3)); [674,874].forEach(x => c.stack('g',x,470,3));
+      c.on(4,'g',2,3);
+      // hop from each ledge to the summit, then drop through the hole
+      c.arc('s',380,438,462,328,2,40); c.arc('s',644,438,562,328,2,40);
+      c.col('g',512,80,5,45); c.col('b',452,430,5,55); c.col('b',572,430,5,55);
+    },
+    pads: [[0,250],[1,190]],
+    tripods: [[1,40,250],[3,40,120]],
+    items: [['burger',512,560]],
+  },
+  // The bullring: a wide arena with gold all over its floor and one charger sweeping it end to end.
+  // Grab what you can while it rests at the far end, and jump it when it comes. Perches step up both
+  // sides to a gallery with a tripod; the arena's ends drop into slots of bronze that fall back in on top.
+  {
+    name: 'Hokusai',
+    theme: { sky: '#0a0604', glow: '#ff8a30', glow2: '#ffe6b0', rock: MERCURY_ROCK, accent: '#38b6ff',
+      planet: Object.assign({ x: 150, y: 110, r: 26 }, MERCURY_PLANET) },
+    start: [65, 595],
+    plat: [[170,700,684],[20,595,90],[914,595,90],[200,485,110],[714,485,110],[342,380,340],[452,165,120]],
+    coins: c => {
+      c.on(0,'g',7,3);
+      c.on(1,'s',1,3); c.on(2,'s',1,3); c.on(3,'g',1,3); c.on(4,'g',1,3);
+      [372,442,582,652].forEach(x => c.stack('s',x,380,2));
+      c.col('g',512,230,3,45); c.on(6,'g',2,2);
+      c.col('b',140,80,9,70); c.col('b',884,80,9,70);
+      c.arc('s',310,453,342,348,2,30); c.arc('s',714,453,682,348,2,30);
+    },
+    pads: [[5,170]],
+    chargers: [[0,1,2]],
+    tripods: [[5,40,80]],
+    items: [['heart',960,300]],
+  },
+  // Crossfire: two chargers share the crater floor, one from each end, so they pass in the middle and
+  // the gold there needs two jumps. Rims on the outer walls are cover. Pads on the lids above the basin
+  // launch you up gold columns to the crown, where a ghost patrols.
+  {
+    name: 'Caloris',
+    theme: { sky: '#0c0604', glow: '#ff7a28', glow2: '#ffd89a', rock: MERCURY_ROCK, accent: '#38b6ff',
+      planet: Object.assign({ x: 512, y: 90, r: 22 }, MERCURY_PLANET) },
+    start: [45, 590],
+    plat: [[140,700,744],[0,590,90],[934,590,90],[180,470,200],[644,470,200],[432,250,160]],
+    coins: c => {
+      c.on(0,'g',7,3);
+      c.on(1,'s',1,3); c.on(2,'s',1,3);
+      [210,280].forEach(x => c.stack('s',x,470,3)); [744,814].forEach(x => c.stack('s',x,470,3));
+      c.col('g',350,110,7,45); c.col('g',674,110,7,45);
+      c.on(5,'g',3,3);
+      c.col('b',115,100,7,90); c.col('b',909,100,7,90);
+    },
+    pads: [[3,170],[4,30]],
+    chargers: [[0,0,1.5],[0,1,1.5]],
+    flyers: [[512,170,150,20,7]],
+    items: [['heart',512,600]],
+  },
+  // Pad ladder: three long slabs stacked up the screen with one bounce pad per slab leading to the next.
+  // A tripod paces the floor; chargers sweep the two upper slabs, running straight over the pads, so
+  // you time the climb between charges. Walk off the floor's left end to fall back in on the top slab.
+  {
+    name: 'Tolstoj',
+    theme: { sky: '#0b0604', glow: '#ff9440', glow2: '#ffefc4', rock: MERCURY_ROCK, accent: '#38b6ff',
+      planet: Object.assign({ x: 900, y: 100, r: 34 }, MERCURY_PLANET) },
+    start: [200, 710],
+    plat: [[140,710,700],[204,480,720],[100,250,720]],
+    coins: c => {
+      [200,330,460,590,700].forEach(x => c.stack('g',x,710,3));
+      [370,490,610,730,880].forEach(x => c.stack('s',x,480,2));
+      [160,300,440,580,720].forEach(x => c.stack('g',x,250,3));
+      // the two pad columns
+      c.col('g',780,330,3,40); c.col('g',780,560,3,45); c.col('g',244,140,2,45); c.col('g',244,300,4,45);
+      // the drop off the floor's left end, and back in from the top onto the top slab
+      c.col('b',115,300,7,60); c.col('b',115,80,3,50);
+      // off the floor's right end, back in from the top onto the middle slab
+      c.col('s',870,80,6,55);
+    },
+    pads: [[0,640],[1,40]],
+    tripods: [[0,40,560]],
+    chargers: [[1,0,2],[2,1,1]],
+    items: [['heart',880,560]],
+  },
+  // Rush hour: a tower of small safe perches up the middle, charger lanes on both sides of it, each
+  // charger on its own timing. The gold towers stand at the lane ends, right where a charger rests, so
+  // wait on a perch for it to charge away, dash in, and get out before it comes back.
+  // Hardest Mercury planet: five chargers and a tripod.
+  {
+    name: 'Rachmaninoff',
+    theme: { sky: '#0d0604', glow: '#ff6e24', glow2: '#ffd090', rock: MERCURY_ROCK, accent: '#38b6ff',
+      planet: Object.assign({ x: 860, y: 640, r: 28 }, MERCURY_PLANET) },
+    start: [80, 700],
+    plat: [[30,700,400],[594,700,400],[462,590,100],[100,480,330],[594,480,330],[462,370,100],
+      [100,260,330],[594,260,330],[462,150,100]],
+    coins: c => {
+      c.on(0,'b',3,2); c.on(1,'g',2,4); c.stack('s',794,700,2);
+      [3,4,6,7].forEach(i => { const [x, y, w] = c.plat(i); c.on(i,'g',2,4); c.stack('b',x + w / 2,y,2); });
+      c.on(2,'s',1,3); c.on(5,'s',1,3); c.on(8,'g',1,2);
+      c.row('g',160,100,5,50); c.row('g',654,100,5,50);
+    },
+    tripods: [[0,40,300]],
+    chargers: [[1,0,1],[3,1,0.5],[4,0,2],[6,0,1.5],[7,1,3]],
+    items: [['heart',512,60]],
+  },
+];
+
 // World 1: Venus (internal id 'titan', kept so saved progress carries over), home of the grey aliens.
 const LEVELS = [
   // The valley: a V of steps climbs out of a small floor on both sides and meets across the left/right seam,
@@ -240,7 +364,7 @@ const MARS = [
     items: [['heart',60,640]],
   },
 ];
-// World 3: Jupiter. Crabs, walking ones and spinning ones that fly. The Saturn backdrop for now.
+// World 3: Jupiter. Crabs, walking ones and spinning ones that fly. Backdrop: the swirling cloud tops.
 // crabs: [platformIndex, speed, offsetX?] walk like aliens, two stomps
 // spinners: [x, y, ax, ay, period, 'o'?] fly a figure-eight like ghosts (ax 0: straight up and down),
 //           or an orbit with 'o'; a negative period flies it the other way. Two stomps.
@@ -374,18 +498,20 @@ const JUPITER = [
 ];
 // LEVELS-END
 
-// painted backdrops (img/bg-*.jpg): Titan's ringed sky for the alien stages (and Jupiter, for now), the red rock plain for Mars
+// painted backdrops (img/bg-*.jpg): blue-veined crags for Mercury, Titan's ringed sky for the alien stages, the red rock plain for Mars, cloud tops for Jupiter
+MERCURY.forEach(L => { L.world = 'mercury'; L.theme.art = 'mercury'; });
 LEVELS.forEach(L => { L.world = 'titan'; L.theme.art = 'titan'; });
 MARS.forEach(L => { L.world = 'mars'; L.theme.art = 'mars'; });
-JUPITER.forEach(L => { L.world = 'jupiter'; L.theme.art = 'titan'; });
+JUPITER.forEach(L => { L.world = 'jupiter'; L.theme.art = 'jupiter'; });
 CP.LEVELS = LEVELS;
 CP.WORLDS = [
+  { id: 'mercury', name: 'Mercury', tagline: 'Golems that walk, and golems that charge', levels: MERCURY, music: 'mars' },
   { id: 'titan', name: 'Venus', tagline: 'Home of the grey aliens', levels: LEVELS },
   { id: 'mars', name: 'Mars', tagline: 'Rock golems and lava', levels: MARS },
   { id: 'jupiter', name: 'Jupiter', tagline: 'Crabs on the cloud belts', levels: JUPITER, music: 'titan' },
 ];
 CP.world = id => CP.WORLDS.find(w => w.id === id) || CP.WORLDS[0];
-CP.ALL_LEVELS = [...LEVELS, ...MARS, ...JUPITER];
+CP.ALL_LEVELS = [...MERCURY, ...LEVELS, ...MARS, ...JUPITER];
 
 // Coin kinds and their points. Anything unknown counts as gold.
 CP.COIN_POINTS = { g: 10, s: 5, b: 2 };

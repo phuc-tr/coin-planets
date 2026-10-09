@@ -11,12 +11,18 @@
   const ALIEN_STRIDE = 21.5;
   // same for the baked rock golem (walk groundSpeed 203.6 x bake scale 0.176)
   const ROCK_STRIDE = 35.8;
-  // every walker (alien, golem, crab) patrols this much faster than the speed written in levels.js
-  const WALK_PACE = 1.1;
+  // every walker (alien, rock golem, crab, Mercury walking golem) patrols at this one speed, px/s
+  // (the speed written in levels.js is ignored)
+  const ENEMY_SPEED = 62;
   // same for the baked crab's sideways scuttle (walk groundSpeed 144 x bake scale 0.206)
   const CRAB_STRIDE = 29.7;
   // crabs animate slower than their stride would give: a lazier scuttle and spin
   const CRAB_ANIM = 0.7;
+  // the Mercury golem's lumbering walk and its charge (groundSpeed 68 and 365.1 x bake scale 0.18)
+  const GOLEM_STRIDE = 12.2, GOLEM_CHARGE_STRIDE = 65.7;
+  // a charging golem runs at this speed (the hero runs 215) and rests this long at each end of its slab;
+  // its legs can't keep up with that, so the charge clip plays at most this much faster than baked
+  const CHARGE = 270, GOLEM_REST = 1.6, CHARGE_ANIM_MAX = 2.5;
   // bounce pads launch the hero about 330px up (a normal jump reaches 160)
   const PAD_BOUNCE = 1120, PAD_TOP = 36, PAD_HALF = 25;
 
@@ -138,7 +144,7 @@
 
       // grey aliens that patrol their platform
       this.walkers = this.physics.add.group({ allowGravity: false });
-      (D.walkers || []).forEach(([pi, sp, rx], k) => {
+      (D.walkers || []).forEach(([pi, , rx], k) => {
         const p = D.plat[pi];
         if (!p) return;
         const w = this.walkers.create(p[0] + (rx != null ? rx : p[2] * (k % 2 ? 0.3 : 0.7)), p[1], 'alien').setDepth(10);
@@ -146,16 +152,16 @@
         w.setOrigin(ox, oy);
         w.body.setSize(26, 51, false).setOffset(w.width * ox - 13, w.height * oy - 51);
         w.kind = 'alien'; w.hp = 2;
-        w.minX = p[0] + 15; w.maxX = p[0] + p[2] - 15; w.sp = sp * WALK_PACE;
+        w.minX = p[0] + 15; w.maxX = p[0] + p[2] - 15; w.sp = ENEMY_SPEED;
         w.dir = k % 2 ? 1 : -1;
         w.setVelocityX(w.dir * w.sp);
         this.faceWalker(w);
         // match the walk cycle to the ground speed so the feet don't slide
         w.play({ key: 'alien-walk', startFrame: Phaser.Math.Between(0, CP.SPRITES.alien.clips.walk.count - 1) });
-        w.anims.timeScale = Phaser.Math.Clamp(w.sp / ALIEN_STRIDE, 0.6, 3);
+        w.anims.timeScale = Phaser.Math.Clamp(w.sp / ALIEN_STRIDE, 0.6, 4);
       });
       // rock golems (the sprite engine's Rock rig): walkers that need two stomps
-      (D.golems || []).forEach(([pi, sp, rx], k) => {
+      (D.golems || []).forEach(([pi, , rx], k) => {
         const p = D.plat[pi];
         if (!p) return;
         const w = this.walkers.create(p[0] + (rx != null ? rx : p[2] * (k % 2 ? 0.3 : 0.7)), p[1], 'rock').setDepth(10);
@@ -163,7 +169,7 @@
         w.setOrigin(ox, oy);
         w.body.setSize(40, 55, false).setOffset(w.width * ox - 20, w.height * oy - 55);
         w.kind = 'golem'; w.hp = 2;
-        w.minX = p[0] + 18; w.maxX = p[0] + p[2] - 18; w.sp = sp * WALK_PACE;
+        w.minX = p[0] + 18; w.maxX = p[0] + p[2] - 18; w.sp = ENEMY_SPEED;
         w.dir = k % 2 ? 1 : -1;
         w.setVelocityX(w.dir * w.sp);
         this.faceWalker(w);
@@ -172,7 +178,7 @@
       });
 
       // Jupiter crabs (the sprite engine's Crab rig): walkers that scuttle sideways, two stomps like aliens
-      (D.crabs || []).forEach(([pi, sp, rx], k) => {
+      (D.crabs || []).forEach(([pi, , rx], k) => {
         const p = D.plat[pi];
         if (!p) return;
         const w = this.walkers.create(p[0] + (rx != null ? rx : p[2] * (k % 2 ? 0.3 : 0.7)), p[1], 'crab').setDepth(10);
@@ -180,12 +186,44 @@
         w.setOrigin(ox, oy);
         w.body.setSize(88, 50, false).setOffset(w.width * ox - 44, w.height * oy - 50);
         w.kind = 'crab'; w.hp = 2;
-        w.minX = p[0] + 42; w.maxX = p[0] + p[2] - 42; w.sp = sp * WALK_PACE;
+        w.minX = p[0] + 42; w.maxX = p[0] + p[2] - 42; w.sp = ENEMY_SPEED;
         w.dir = k % 2 ? 1 : -1;
         w.setVelocityX(w.dir * w.sp);
         this.faceWalker(w);
         w.play({ key: 'crab-walk', startFrame: Phaser.Math.Between(0, CP.SPRITES.crab.clips.walk.count - 1) });
         w.anims.timeScale = Phaser.Math.Clamp(w.sp / CRAB_STRIDE, 0.6, 4) * CRAB_ANIM;
+      });
+
+      // Mercury golems (the sprite engine's Golem rig). Tripods patrol their slab like aliens.
+      // Chargers ignore the hero: they rest at one end of their slab, paw the ground, charge to the
+      // other end, skid, rest, and charge back. Both take two stomps.
+      const golem = (p, x) => {
+        const w = this.walkers.create(x, p[1], 'golem').setDepth(10);
+        const [ox, oy] = CP.art.spriteOrigin('golem');
+        w.setOrigin(ox, oy);
+        w.body.setSize(46, 58, false).setOffset(w.width * ox - 23, w.height * oy - 58);
+        w.hp = 2; w.rage = 1;
+        w.minX = p[0] + 24; w.maxX = p[0] + p[2] - 24;
+        return w;
+      };
+      (D.tripods || []).forEach(([pi, , rx], k) => {
+        const p = D.plat[pi];
+        if (!p) return;
+        const w = golem(p, p[0] + (rx != null ? rx : p[2] * (k % 2 ? 0.3 : 0.7)));
+        w.kind = 'tripod'; w.sp = ENEMY_SPEED;
+        w.dir = k % 2 ? 1 : -1;
+        w.setVelocityX(w.dir * w.sp);
+        this.faceWalker(w);
+        this.golemAnim(w, 'walk', Phaser.Math.Between(0, CP.SPRITES.golem.clips.walk.count - 1));
+      });
+      (D.chargers || []).forEach(([pi, side, wait]) => {
+        const p = D.plat[pi];
+        if (!p) return;
+        const w = golem(p, side ? p[0] + p[2] - 24 : p[0] + 24);
+        w.kind = 'charger'; w.mode = 'rest'; w.t = GOLEM_REST - (wait == null ? 1 : wait); w.sp = 0;
+        w.dir = side ? -1 : 1;
+        this.faceWalker(w);
+        this.golemAnim(w, 'idle', Phaser.Math.Between(0, CP.SPRITES.golem.clips.idle.count - 1));
       });
 
       // ghosts float on a figure-eight; their bodies follow the sprite (moves = false).
@@ -280,6 +318,7 @@
       this.fx = {
         g: spark(0xffd76a), s: spark(0xeef2ff), b: spark(0xe0935a), grey: spark(0xd8dbe4), red: spark(0xff5d73), orange: spark(0xffb347),
         rock: em('spark', { speed: { min: 80, max: 260 }, lifespan: 750, scale: { start: 1.6, end: 0.6 }, alpha: { start: 1, end: 0 }, gravityY: 700, tint: [0xb8714a, 0x7d3d22, 0x5a2a16] }),
+        stone: em('spark', { speed: { min: 80, max: 260 }, lifespan: 750, scale: { start: 1.6, end: 0.6 }, alpha: { start: 1, end: 0 }, gravityY: 700, tint: [0xb4b0b8, 0x7c7884, 0x4a4650] }),
         ember: em('spark', { speed: { min: 60, max: 200 }, angle: { min: 230, max: 310 }, lifespan: 600, scale: { start: 1, end: 0.2 }, alpha: { start: 1, end: 0 }, gravityY: 500, tint: [0xffd36b, 0xff7a2a] }),
         hero: em('spark', { speed: { min: 100, max: 240 }, lifespan: 700, scale: { start: 1, end: 0.3 }, alpha: { start: 1, end: 0 }, gravityY: 300, tint: 0xffd21f }),
         dust: em('puff', { speed: { min: 20, max: 80 }, angle: { min: 200, max: 340 }, lifespan: 450, scale: { start: 0.35, end: 1 }, alpha: { start: 0.5, end: 0 }, tint: 0xd2d2dc }),
@@ -448,7 +487,7 @@
       this.spawnGuard -= dt;
       const [sx, sy] = this.D.start, guard = this.spawnGuard > 0;
       this.walkers.getChildren().forEach(w => {
-        if (w.dead) return;
+        if (w.dead || (w.mode && w.mode !== 'walk')) return;
         const nearSpawn = guard && !w.guarded && Math.abs(w.y - sy) < 8 && Math.abs(w.x - sx) < 110 && (sx - w.x) * w.dir > 0;
         if (nearSpawn) w.guarded = true;
         if (nearSpawn || (w.x <= w.minX && w.dir < 0) || (w.x >= w.maxX && w.dir > 0)) {
@@ -456,6 +495,7 @@
           this.faceWalker(w);
         }
       });
+      this.updateGolems(dt);
       this.updateMars(dt);
       for (const f of this.flyers) {
         if (f.dead) continue;
@@ -466,6 +506,54 @@
         if (f.kind === 'ghost') f.setFlipX(nx < f.x);
         f.setPosition(nx, k.y + k.ay * Math.sin(2 * a));
       }
+    }
+
+    // Play a golem clip at the pace of its movement (an angry golem moves, and so animates, faster).
+    golemAnim(w, clip, startFrame) {
+      w.play({ key: 'golem-' + clip, startFrame: startFrame || 0 });
+      w.anims.timeScale = clip === 'walk' ? Phaser.Math.Clamp(w.sp / GOLEM_STRIDE, 0.6, 5.5)
+        : clip === 'charge' ? Math.min(CHARGE * w.rage / GOLEM_CHARGE_STRIDE, CHARGE_ANIM_MAX) : w.rage;
+    }
+
+    // Charging golems: rest (at an end, facing across) → windup (paws the ground) → charge → skid
+    // (stops right at the far end) → rest, turned round. They pay no attention to the hero.
+    updateGolems(dt) {
+      this.walkers.getChildren().forEach(w => {
+        if (w.dead || w.kind !== 'charger') return;
+        const v = CHARGE * w.rage;
+        w.t += dt;
+        if (w.mode === 'rest') {
+          if (w.t >= GOLEM_REST / w.rage) { w.mode = 'windup'; w.t = 0; this.golemAnim(w, 'charge_start'); }
+        } else if (w.mode === 'windup') {
+          // the clip lunges at 0.58 s: start moving there and reach full speed as the clip ends
+          const e = w.t * w.rage, launch = 0.58, ramp = 0.22;
+          if (e >= launch) w.setVelocityX(w.dir * v * Math.min(1, (e - launch) / ramp));
+          if (e >= launch + ramp) {
+            w.mode = 'charge'; w.t = 0;
+            this.golemAnim(w, 'charge');
+            this.fx.dust.explode(5, w.x - w.dir * 20, w.y);
+          }
+        } else if (w.mode === 'charge') {
+          w.setVelocityX(w.dir * v);
+          // start the skid so that it stops right at the end of the slab
+          const left = w.dir > 0 ? w.maxX - w.x : w.x - w.minX;
+          if (left <= v * 0.17) {
+            w.mode = 'skid'; w.t = 0;
+            this.golemAnim(w, 'charge_end');
+            this.fx.dust.explode(8, w.x + w.dir * 20, w.y);
+          }
+        } else if (w.mode === 'skid') {
+          w.setVelocityX(w.dir * v * Math.max(0, 1 - w.t / 0.34));
+          if (w.t >= 0.34 && !w.thudded) { w.thudded = true; CP.sfx.crack(); }
+          if (w.t >= 0.9 / w.rage) {
+            w.mode = 'rest'; w.t = 0; w.thudded = false;
+            w.setVelocityX(0);
+            w.dir *= -1; this.faceWalker(w);
+            this.golemAnim(w, 'idle');
+          }
+        }
+        w.x = Phaser.Math.Clamp(w.x, w.minX, w.maxX);
+      });
     }
 
     // Alien, golem and crab art all face screen-right; mirror them when walking left.
@@ -717,12 +805,18 @@
       if (!onTop && this.clock < (w.safeUntil || 0)) return;
       if (onTop && w.hp > 1) {
         // the first stomp angers an enemy: it keeps walking, now faster (a second stomp finishes it)
-        const golem = w.kind === 'golem';
+        const golem = w.kind === 'golem' || w.kind === 'charger' || w.kind === 'tripod';
         w.hp--;
         w.safeUntil = this.clock + 0.35;
         w.sp *= 1.45;
-        w.setVelocityX(w.dir * w.sp);
-        w.anims.timeScale *= 1.45;
+        if (w.kind === 'charger') {
+          // an angry charging golem charges faster and rests less
+          w.rage = 1.25;
+          w.anims.timeScale *= 1.25;
+        } else {
+          w.setVelocityX(w.dir * w.sp);
+          w.anims.timeScale *= 1.45;
+        }
         // white flash, then a tint marks a hurt enemy: hot orange for a cracked golem, red for an alien
         w.setTintFill(0xffffff);
         this.time.delayedCall(90, () => w.active && w.setTint(golem ? 0xff8a5c : 0xff7070));
@@ -732,20 +826,20 @@
         if (golem) {
           CP.sfx.crack();
           this.cameras.main.shake(120, 0.004);
-          this.fx.rock.explode(8, w.x, w.y - 50);
+          (w.kind === 'golem' ? this.fx.rock : this.fx.stone).explode(8, w.x, w.y - 50);
         } else {
           CP.sfx.stomp();
           this.fx.grey.explode(6, w.x, w.y - 40);
         }
       } else if (onTop) {
         // stomp
-        const golem = w.kind === 'golem';
+        const golem = w.kind === 'golem' || w.kind === 'charger' || w.kind === 'tripod';
         w.dead = true; w.body.enable = false; w.anims.stop();
         this.tweens.add({ targets: w, scaleY: 0.2, scaleX: 1.3, alpha: 0, duration: 450, ease: 'Quad.out', onComplete: () => w.destroy() });
         b.setVelocityY(this.stompBounce(w));
         const pts = golem ? 100 : 50;
         this.score += pts; this.syncRegistry();
-        if (golem) { CP.sfx.shatter(); this.fx.rock.explode(22, w.x, w.y - 30); w.setVisible(false); }
+        if (golem) { CP.sfx.shatter(); (w.kind === 'golem' ? this.fx.rock : this.fx.stone).explode(22, w.x, w.y - 30); w.setVisible(false); }
         else { CP.sfx.stomp(); this.fx.grey.explode(10, w.x, w.y - 40); }
         this.floatText(w.x, w.y - 56, '+' + pts, '#ffffff');
       } else this.hurt();

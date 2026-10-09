@@ -175,7 +175,8 @@
 
   // A rock slab texture of (w + 8) x 44; the walkable top edge sits at y = 4.
   // Smooth slabs (Jupiter) trade the speckles and cracks for soft cloud bands.
-  function makeRock(w, rng, pal, smooth) {
+  // `accent` (a colour) makes hard, faceted rock with glowing cracks of that colour and a rim lit in it.
+  function makeRock(w, rng, pal, smooth, accent) {
     pal = pal || GREY_ROCK;
     const c = mk(w + 8, 44), g = c.getContext('2d');
     const pts = [];
@@ -203,9 +204,10 @@
       }
       g.restore();
     } else {
+    // accent rock is hard and dull: far fewer, fainter light flecks, and softer dark ones
     for (let i = 0; i < w * 1.8; i++) {
-      const x = 4 + rng() * w, y = 2 + rng() * 34, r = 0.5 + rng() * 2;
-      g.fillStyle = rng() < 0.5 ? `rgba(255,255,255,${0.04 + rng() * 0.13})` : `rgba(0,0,0,${0.12 + rng() * 0.28})`;
+      const x = 4 + rng() * w, y = 2 + rng() * 34, r = 0.5 + rng() * 2, light = rng() < (accent ? 0.12 : 0.5);
+      g.fillStyle = light ? `rgba(255,255,255,${(0.04 + rng() * 0.13) * (accent ? 0.5 : 1)})` : `rgba(0,0,0,${(0.12 + rng() * 0.28) * (accent ? 0.6 : 1)})`;
       g.beginPath(); g.arc(x, y, r, 0, TAU); g.fill();
     }
     for (let i = 0; i < w / 14; i++) {
@@ -213,9 +215,28 @@
       g.strokeStyle = 'rgba(0,0,0,0.3)'; g.lineWidth = 0.8;
       g.beginPath(); g.moveTo(x, y); g.lineTo(x + 4 + rng() * 6, y + (rng() - 0.5) * 6); g.stroke();
     }
+    if (accent) {
+      // hard facets: angular light and dark planes chipped into the face
+      for (let x = 4; x < w; x += 16 + rng() * 22) {
+        const fw = 10 + rng() * 18, top = 4 + rng() * 6, bot = 26 + rng() * 8;
+        g.fillStyle = rng() < 0.5 ? `rgba(255,255,255,${0.04 + rng() * 0.06})` : `rgba(0,0,0,${0.12 + rng() * 0.14})`;
+        g.beginPath(); g.moveTo(x, top); g.lineTo(x + fw, top + rng() * 4); g.lineTo(x + fw * (0.4 + rng() * 0.8), bot); g.closePath(); g.fill();
+      }
+      // glowing cracks: jagged lines wandering through the rock
+      g.strokeStyle = accent; g.lineCap = 'round'; g.lineJoin = 'miter';
+      g.shadowColor = accent; g.shadowBlur = 6;
+      for (let i = 0; i < Math.max(1, w / 70); i++) {
+        let x = 10 + rng() * (w - 14), y = 6 + rng() * 10;
+        g.lineWidth = 1 + rng() * 0.9; g.globalAlpha = 0.65 + rng() * 0.35;
+        g.beginPath(); g.moveTo(x, y);
+        for (let k = 0; k < 3 + rng() * 3; k++) { x += (rng() - 0.5) * 22; y += 3 + rng() * 5; g.lineTo(x, Math.min(y, 32)); }
+        g.stroke();
+      }
+      g.globalAlpha = 1; g.shadowBlur = 0;
+    }
     g.restore();
     }
-    g.strokeStyle = 'rgba(255,255,255,0.28)'; g.lineWidth = 1.4;
+    g.strokeStyle = accent ? hexA(accent, 0.75) : 'rgba(255,255,255,0.28)'; g.lineWidth = 1.4;
     g.beginPath(); let first = true;
     for (const p of pts) { if (p[1] > 7) continue; first ? g.moveTo(p[0], p[1] + 0.6) : g.lineTo(p[0], p[1] + 0.6); first = false; }
     g.stroke();
@@ -424,7 +445,7 @@
     spriteOrigin: key => [CP.SPRITES[key].originX, CP.SPRITES[key].originY],
     // Load the baked sheets; called from the Boot scene's preload.
     loadSprites(scene) {
-      ['titan', 'mars'].forEach(k => scene.load.image('art-' + k, `img/bg-${k}.jpg`));
+      ['titan', 'mars', 'mercury', 'jupiter'].forEach(k => scene.load.image('art-' + k, `img/bg-${k}.jpg`));
       scene.load.image('art-menu', 'img/bg-menu.jpg');
       // bounce pad: frame 0 at rest (spring up), frame 1 pressed flat
       scene.load.spritesheet('bouncer', 'img/bouncer.png', { frameWidth: 65, frameHeight: 41 });
@@ -494,9 +515,9 @@
     },
     rockKey(scene, w, variant, theme) {
       w = Math.max(20, Math.round(w));
-      const pal = theme && theme.rock, smooth = !!(theme && theme.smooth);
-      const key = `rock-${w}-${variant}` + (pal ? '-' + hashStr(pal.join()) : '') + (smooth ? '-smooth' : '');
-      if (!scene.textures.exists(key)) scene.textures.addCanvas(key, makeRock(w, mulberry(w * 131 + variant * 977 + 3), pal, smooth));
+      const pal = theme && theme.rock, smooth = !!(theme && theme.smooth), accent = theme && theme.accent;
+      const key = `rock-${w}-${variant}` + (pal ? '-' + hashStr(pal.join()) : '') + (smooth ? '-smooth' : '') + (accent ? '-' + accent : '');
+      if (!scene.textures.exists(key)) scene.textures.addCanvas(key, makeRock(w, mulberry(w * 131 + variant * 977 + 3), pal, smooth, accent));
       return key;
     },
     moverKey(scene, w) {

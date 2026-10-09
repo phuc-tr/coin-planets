@@ -55,6 +55,17 @@ const SPEC = [
       { name: 'walk', clip: 'walk', fps: 16 },
     ],
   },
+  // the Mercury golem: patrols, winds up when it sees the hero, charges, skids to a stop
+  {
+    key: 'golem', project: 'projects/golem.json', scale: 0.18,
+    clips: [
+      { name: 'idle', clip: 'idle', fps: 12 },
+      { name: 'walk', clip: 'walk', fps: 16 },
+      { name: 'charge_start', clip: 'charge_start', fps: 20 },
+      { name: 'charge', clip: 'charge', fps: 24 },
+      { name: 'charge_end', clip: 'charge_end', fps: 20 },
+    ],
+  },
   // the spinning crab floats, so its turntable gets its own sheet sized to the spin alone
   {
     key: 'crabspin', project: 'projects/crab.json', scale: 0.206,
