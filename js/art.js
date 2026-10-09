@@ -426,6 +426,8 @@
     loadSprites(scene) {
       ['titan', 'mars'].forEach(k => scene.load.image('art-' + k, `img/bg-${k}.jpg`));
       scene.load.image('art-menu', 'img/bg-menu.jpg');
+      // bounce pad: frame 0 at rest (spring up), frame 1 pressed flat
+      scene.load.spritesheet('bouncer', 'img/bouncer.png', { frameWidth: 65, frameHeight: 41 });
       Object.entries(CP.SPRITES).forEach(([key, sp]) => scene.load.spritesheet(key, sp.png, { frameWidth: sp.frameWidth, frameHeight: sp.frameHeight }));
     },
     color: hex => parseInt(hex.slice(1), 16),

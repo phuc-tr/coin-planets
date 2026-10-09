@@ -8,12 +8,15 @@ var CP = window.CP = window.CP || {};
 // Mars only: golems: [platformIndex, speed, offsetX?]   boulders (chutes): [x, y, dir, seconds]
 //            fallers: [x, y]   lava: [x, peakY, seconds]
 // icicles hang under a platform, spikes stand on top: [platformIndex, offsetX]
+// pads: bounce pads standing on a platform, [platformIndex, offsetX]. Walk past one and nothing happens;
+//       drop onto it and it flings you about 330px up (a jump is 160), so stack a coin column above it.
 // Every planet is built around one idea, noted above it. The screen wraps left/right, and falling
 // off the bottom drops you back in from the top, so several planets are laid out across those seams.
 // World 1: Venus (internal id 'titan', kept so saved progress carries over), home of the grey aliens.
 const LEVELS = [
   // The valley: a V of steps climbs out of a small floor on both sides and meets across the left/right seam,
   // with a summit pad above the middle. Either side of the floor is open: fall off and you drop back in from the top.
+  // A bounce pad on each of the first steps flings you up a coin column onto the high steps.
   {
     name: 'Vale',
     theme: { sky: '#07050a', glow: '#f5a524', glow2: '#ffe27a',
@@ -27,7 +30,10 @@ const LEVELS = [
       c.on(5,'g',2,3); c.on(6,'g',2,3); c.on(7,'s',2,3); c.on(8,'s',2,3); c.on(9,'g',1,2);
       // drop off either edge of the summit and fall through a coin column onto the floor
       c.col('g',414,250,6,60); c.col('g',610,250,6,60);
+      // the bounce columns over the two pads
+      c.col('s',285,310,5,45); c.col('s',739,310,5,45);
     },
+    pads: [[1,75],[2,75]],
     walkers: [[0,40,270]],
     flyers: [], orbs: [],
     icicles: [],
@@ -139,6 +145,7 @@ const LEVELS = [
 const MARS_ROCK = ['#b8714a', '#7d3d22', '#38150a'];
 const MARS = [
   // Islands: small rocks in open space; coin arcs trace each jump, lava leaps through the gaps.
+  // A bounce pad on the golem's island is the shortcut up to the rock above it.
   {
     name: 'Red Dunes',
     theme: { sky: '#0d0504', glow: '#e8622c', glow2: '#ffb27a', rock: MARS_ROCK,
@@ -151,12 +158,15 @@ const MARS = [
       c.arc('b',220,658,360,608,3,80); c.arc('b',480,608,620,658,3,80); c.arc('g',760,658,880,528,3,80);
       c.arc('g',880,528,720,418,3,80); c.arc('g',600,418,420,378,3,80); c.arc('g',300,378,180,288,3,80);
       c.arc('g',180,288,300,168,3,80); c.arc('g',420,168,600,188,3,80); c.row('s',1056,561,1);
+      c.col('s',690,500,3,45);
     },
+    pads: [[2,70]],
     golems: [[2,30]],
     lava: [[290,470,3],[800,500,3.5],[510,330,4]],
     items: [['burger',100,200]],
   },
   // The mountain: a stepped peak with golems pacing three terraces; coin rain falls past the cliffs.
+  // Bounce pads at both feet of the mountain shoot you up tall gold columns beside the cliffs.
   {
     name: 'Olympus Mons',
     theme: { sky: '#0c0405', glow: '#d9472b', glow2: '#ffd08a', rock: MARS_ROCK,
@@ -164,11 +174,12 @@ const MARS = [
     start: [200, 700],
     plat: [[112,700,800],[212,570,600],[312,440,400],[412,310,200],[462,180,100]],
     coins: c => {
-      c.stack('g',160,700,4); c.stack('g',864,700,4); c.stack('g',262,570,4); c.stack('g',762,570,4);
+      c.col('g',162,310,7,50); c.col('g',862,310,7,50); c.stack('g',262,570,4); c.stack('g',762,570,4);
       c.stack('g',362,440,4); c.stack('g',662,440,4); c.stack('g',437,310,3); c.stack('g',587,310,3); c.stack('g',512,180,3);
       c.row('b',300,668,5,106); c.row('s',380,538,4,88); c.row('s',470,408,2,84);
       c.col('s',50,200,5,90); c.col('s',974,200,5,90);
     },
+    pads: [[0,50],[0,750]],
     golems: [[0,35],[1,30],[2,30]],
     lava: [[56,250,3.5],[968,250,4]],
     items: [['heart',50,120]],
@@ -238,6 +249,7 @@ const JUPITER = [
   // Satellites: one big moon slab, and small satellite pads scattered round it at odd heights; one sits
   // across the seam, so the hop from the right-hand pad lands on the far left. A spinner orbits the open
   // sky and guards a ring of silver; another bobs up and down in the gap you jump to leave the moon.
+  // A bounce pad on the low satellite launches you through a gold column onto the pad above it.
   {
     name: 'Io',
     theme: { sky: '#0b0804', glow: '#e3b23c', glow2: '#fff0b0', rock: JUPITER_ROCK, smooth: true,
@@ -253,7 +265,9 @@ const JUPITER = [
       c.row('g',975,480,1);
       c.ring('s',790,350,90,60,8);
       c.col('b',150,440,4,40); c.row('g',305,160,3,50);
+      c.col('g',715,525,3,45);
     },
+    pads: [[1,75]],
     crabs: [[0,40,300]],
     spinners: [[790,350,90,60,7,'o'],[610,480,0,60,8]],
     spikes: [[2,65]],
@@ -334,7 +348,7 @@ const JUPITER = [
   // The vortex: a broken spiral of pads climbs round the storm toward the eye, a small pad in the middle
   // with a gold tower. Two rings of spinners orbit the eye in opposite directions: the inner one circles
   // the tower, the outer one sweeps the side pads. Leave the eye by the right and drop down to the floor
-  // that runs across the seam back to the start.
+  // that runs across the seam back to the start. A bounce pad on that floor keeps you bouncing up a gold column.
   {
     name: 'Great Red Spot',
     theme: { sky: '#0c0504', glow: '#d0643c', glow2: '#ffcf9a', rock: JUPITER_ROCK, smooth: true,
@@ -349,7 +363,9 @@ const JUPITER = [
       c.on(7,'g',2,3); c.on(8,'b',2,2);
       // the leap into the eye and the drop out of it
       c.arc('g',440,348,555,398,3,70); c.arc('g',645,398,720,508,2,40);
+      c.col('g',947,310,7,48);
     },
+    pads: [[8,67]],
     crabs: [[8,35]],
     spinners: [[600,400,130,95,6,'o'],[600,400,250,185,-9,'o']],
     spikes: [[2,75],[7,65]],

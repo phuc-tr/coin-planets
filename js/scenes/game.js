@@ -17,6 +17,8 @@
   const CRAB_STRIDE = 29.7;
   // crabs animate slower than their stride would give: a lazier scuttle and spin
   const CRAB_ANIM = 0.7;
+  // bounce pads launch the hero about 330px up (a normal jump reaches 160)
+  const PAD_BOUNCE = 1120, PAD_TOP = 36, PAD_HALF = 25;
 
   // Platforms are solid only from above, so the player can jump up through them.
   function oneWay(body) {
@@ -125,6 +127,13 @@
           this.add.image(cx, base, tall ? 'spike' : 'spike-s').setOrigin(0.5, 1).setDepth(7);
           zone(cx, base - h / 2, 8, h);
         });
+      });
+
+      // bounce pads stand on a platform like spikes. They aren't solid: walk straight past one,
+      // but drop onto its dome and it springs you high into the air.
+      this.pads = (D.pads || []).filter(([pi]) => D.plat[pi]).map(([pi, rx]) => {
+        const p = D.plat[pi], x = p[0] + rx, y = p[1] + 2;
+        return this.add.sprite(x, y, 'bouncer', 0).setOrigin(0.5, 1).setDepth(8);
       });
 
       // grey aliens that patrol their platform
@@ -239,7 +248,7 @@
       // player: an invisible physics box, plus the animated hero sprite that follows it
       const [sx, sy] = D.start;
       this.player = this.physics.add.image(sx, sy, 'hit').setOrigin(0.5, 1).setVisible(false);
-      this.player.setMaxVelocity(RUN, 950);            // no world bounds: the screen wraps
+      this.player.setMaxVelocity(RUN, PAD_BOUNCE);     // no world bounds: the screen wraps
       const [hox, hoy] = CP.art.spriteOrigin('coin');
       this.hero = this.add.sprite(sx, sy, 'coin', 0).setOrigin(hox, hoy).setDepth(20).play('coin-idle');
       // copies of the hero drawn on the opposite edges while it straddles the screen wrap
@@ -347,7 +356,7 @@
       this.player.body.enable = false;
       this.player.body.reset(sx, sy);
       this.hero.setAngle(0).setScale(1).setAlpha(0).setPosition(sx, sy).play('coin-idle');
-      this.face = 1; this.buf = 0; this.wasGround = true;
+      this.face = 1; this.buf = 0; this.wasGround = true; this.lastBottom = null;
       this.tweens.add({ targets: this.hero, alpha: 1, delay: 250, duration: 1000, ease: 'Sine.in' });
       CP.sfx.bubbles();
       const bubbles = [];
@@ -571,12 +580,44 @@
       b.setGravityY(b.velocity.y < 0 ? (c.held('jump') || this.bouncing ? 0 : GRAV * 1.3) : -GRAV * (1 - FALL));
       if (b.velocity.y > MAX_FALL) b.setVelocityY(MAX_FALL);
 
+      this.checkPads();
+
       if (onGround && !this.wasGround && this.lastVy > 380) {
         this.squash(1 + Math.min(0.2, this.lastVy / 4000), 1 - Math.min(0.2, this.lastVy / 4000));
         this.fx.dust.explode(6, this.player.x, this.player.y);
       }
       this.wasGround = onGround;
       this.lastVy = b.velocity.y;
+      this.lastBottom = b.bottom;
+    }
+
+    // A pad fires only when the hero's feet come down through its dome this step: falling onto it
+    // from above. Walking through it, or rising up through it, does nothing.
+    checkPads() {
+      const b = this.player.body, prev = this.lastBottom;
+      if (prev == null || b.velocity.y <= 0) return;
+      for (const pad of this.pads) {
+        const top = pad.y - PAD_TOP;
+        let dx = Math.abs(this.player.x - pad.x);
+        dx = Math.min(dx, W - dx);
+        if (dx < PAD_HALF + b.width / 2 && prev <= top + 6 && b.bottom >= top) return this.padBounce(pad, top);
+      }
+    }
+
+    padBounce(pad, top) {
+      const b = this.player.body;
+      b.reset(this.player.x, top);
+      b.setVelocityY(-PAD_BOUNCE);
+      this.bouncing = true;
+      this.buf = 0; this.coyote = 0; this.standT = 0;
+      this.lastBottom = b.bottom;
+      CP.sfx.boing();
+      this.squash(1.25, 0.75);
+      this.fx.dust.explode(8, pad.x, pad.y - 6);
+      // the dome shows pressed flat for a moment, then pops back up
+      if (pad.timer) pad.timer.remove();
+      pad.setFrame(1);
+      pad.timer = this.time.delayedCall(120, () => pad.setFrame(0));
     }
 
     // Screen wrap: when the middle of the hero crosses an edge, move it one screen width or height

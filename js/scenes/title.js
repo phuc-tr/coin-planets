@@ -338,6 +338,7 @@
       D.plat.forEach(([x, y], j) => img(x - 4, y - 4, keys.rocks[j], 0, 0));
       (D.icicles || []).forEach(([pi, rx]) => D.plat[pi] && img(D.plat[pi][0] + rx, D.plat[pi][1] + 27, 'icicle', 0.5, 0));
       (D.spikes || []).forEach(([pi, rx]) => D.plat[pi] && img(D.plat[pi][0] + rx, D.plat[pi][1] + 1, 'spike', 0.5, 1));
+      (D.pads || []).forEach(([pi, rx]) => D.plat[pi] && img(D.plat[pi][0] + rx, D.plat[pi][1] + 2, 'bouncer', 0.5, 1).last.setFrame(0));
       CP.buildCoins(D).forEach(o => img(o.x, o.y, 'coin-' + o.k));
       img(D.start[0], D.start[1], 'coin-g', 0.5, 1);
       const dt = this.textures.addDynamicTexture(key, 256, 192);
