@@ -58,6 +58,8 @@
       }
     },
     pop() { [0, 0.04, 0.09].forEach((d, i) => tone(900 + i * 260, 0.06, 'sine', 0.07, 2200 + i * 300, d)); },
+    // bounce pad: a springy upward sweep with a wobble on top
+    boing() { tone(140, 0.32, 'sine', 0.14, 620); tone(280, 0.22, 'triangle', 0.05, 1240, 0.02); tone(620, 0.12, 'sine', 0.05, 520, 0.3); },
     hiss() { tone(1200, 0.22, 'sawtooth', 0.015, 300); },
   };
 
