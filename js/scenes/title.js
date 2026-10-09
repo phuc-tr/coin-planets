@@ -1,10 +1,15 @@
 // Title: three screens over the key art. The main menu (game title + Play), then, behind a dark veil, a planet carousel and the level
 // list of the chosen planet: one preview card per level. Levels open by clearing the one before;
 // locked cards can't be picked. Everything here is drawn square: hard edges, no rounded corners.
+// The carousel shows each planet as a big picture card that is itself the play button; its neighbours peek in, dimmed, at the sides,
+// and the chosen planet's picture also glows faintly behind the planet and level screens.
 (function () {
   var CP = window.CP = window.CP || {};
   const W = 1024;
-  const BOX = 320, BX = W / 2, BY = 300;     // the planet square (artwork goes here)
+  const CARD = 460, BX = W / 2, BY = 372;    // the chosen planet's card
+  const GAP = 392, SIDE = 0.5;               // neighbour cards: distance from the centre and scale
+  const AMB = 0.3;                           // alpha of the planet picture glowing behind the screens
+  const VEIL = 1;                            // the veil hides the key art fully; the planet picture shows instead
   const LINE = 4;
 
   // A square outlined button with a text label; it inverts on hover.
@@ -23,27 +28,6 @@
     hit.on('pointerout', () => draw(false));
     hit.on('pointerdown', () => { if (CP.audio) CP.audio.unlock(); onPress(); });
     return { g, t, hit, draw, all: [g, t, hit] };
-  }
-
-  // A square arrow button: a hollow box with a solid triangle pointing in direction d (-1 / +1).
-  // A disabled arrow is drawn faint and ignores the pointer.
-  function arrow(scene, x, y, d, onPress) {
-    const s = 72, g = scene.add.graphics();
-    const b = { g, enabled: true };
-    const draw = on => {
-      on = on && b.enabled;
-      const a = b.enabled ? 1 : 0.22;
-      g.clear().fillStyle(on ? 0xffffff : 0x000000, 1).fillRect(x - s / 2, y - s / 2, s, s)
-        .lineStyle(LINE, 0xffffff, a).strokeRect(x - s / 2, y - s / 2, s, s)
-        .fillStyle(on ? 0x000000 : 0xffffff, a)
-        .fillTriangle(x + d * 14, y, x - d * 10, y - 18, x - d * 10, y + 18);
-    };
-    draw(false);
-    const hit = scene.add.zone(x, y, s, s).setInteractive({ useHandCursor: true });
-    hit.on('pointerover', () => draw(true));
-    hit.on('pointerout', () => draw(false));
-    hit.on('pointerdown', () => { if (b.enabled) onPress(); });
-    return Object.assign(b, { hit, draw, all: [g, hit] });
   }
 
   CP.TitleScene = class TitleScene extends Phaser.Scene {
@@ -75,6 +59,8 @@
       this.add.image(0, 0, 'art-menu').setOrigin(0);
       // the planet and level screens keep the art behind a dark veil
       this.veil = this.add.rectangle(W / 2, 384, W, 768, 0x000000, 1).setAlpha(0).setVisible(false);
+      // over the veil, the chosen planet's picture, blown up and faint
+      this.amb = CP.WORLDS.map(w => this.add.image(W / 2, 384, 'card-' + w.id).setDisplaySize(W, W).setAlpha(0).setVisible(false));
       const MX = 760;
       const title = CP.ui.chunky(this, MX, 250, 'Coin', 112);
       const title2 = CP.ui.chunky(this, MX, 360, 'Planets', 112);
@@ -88,30 +74,19 @@
       ];
 
       /* ---------- planet select ---------- */
-      const head = CP.ui.label(this, W / 2, 84, 'CHOOSE A PLANET', 22, '#ffffff', 6);
-      const frame = this.add.graphics().fillStyle(0x000000, 1).fillRect(BX - BOX / 2, BY - BOX / 2, BOX, BOX)
-        .lineStyle(LINE, 0xffffff, 1).strokeRect(BX - BOX / 2, BY - BOX / 2, BOX, BOX);
-      // the square clips the sliding planet art; the mask flies in with the frame
-      this.maskG = this.make.graphics({ add: false }).fillStyle(0xffffff).fillRect(BX - BOX / 2, BY - BOX / 2, BOX, BOX);
-      this.artMask = this.maskG.createGeometryMask();
-      this.art = this.planetArt(this.idx, 0);
-      this.la = arrow(this, BX - BOX / 2 - 76, BY, -1, () => this.move(-1));
-      this.ra = arrow(this, BX + BOX / 2 + 76, BY, 1, () => this.move(1));
-      this.pName = CP.ui.chunky(this, W / 2, BY + BOX / 2 + 46, '', 48);
-      this.pInfo = CP.ui.label(this, W / 2, BY + BOX / 2 + 90, '', 16, 'rgba(255,255,255,0.7)', 4);
-      const go = button(this, W / 2, BY + BOX / 2 + 160, 280, 76, 'PLAY', 30, () => this.show('levels'));
+      const head = CP.ui.label(this, W / 2, 76, 'CHOOSE A PLANET', 22, '#ffffff', 6);
       const back = button(this, 24 + 60, 24 + 24, 120, 48, 'BACK', 16, () => this.show('menu'));
-      this.frame = frame;
+      // every planet's card sits in one container, so the carousel flies in and out as a whole
+      this.carousel = this.add.container(0, 0);
+      this.pcards = CP.WORLDS.map((_, i) => this.planetCard(i));
+      this.dots = this.add.graphics();
       this.selStatic = [
         { objs: [head], dx: 0, dy: -40, delay: 0 },
         { objs: back.all, dx: -120, dy: 0, delay: 40 },
-        { objs: this.la.all, dx: -110, dy: 0, delay: 160 },
-        { objs: this.ra.all, dx: 110, dy: 0, delay: 160 },
-        { objs: [this.pName], dx: 0, dy: 36, delay: 200 },
-        { objs: [this.pInfo], dx: 0, dy: 36, delay: 240 },
-        { objs: go.all, dx: 0, dy: 50, delay: 280 },
+        { objs: [this.dots], dx: 0, dy: 36, delay: 220 },
       ];
-      this.buttons.push(this.la, this.ra, go, back);
+      this.buttons.push(back);
+      this.placeCards(false);
 
       /* ---------- level list ---------- */
       this.lvHead = CP.ui.chunky(this, W / 2, 84, '', 52);
@@ -126,7 +101,7 @@
 
       // remember where everything rests, then start with every screen hidden
       [...this.menuGroups, ...this.selStatic, ...this.lvGroups].forEach(g => g.objs.forEach(o => { o.hx = o.x; o.hy = o.y; }));
-      [frame, this.maskG].forEach(o => { o.hx = o.x; o.hy = o.y; });
+      this.carousel.hx = 0; this.carousel.hy = 0;
       [...this.selGroups(), ...this.lvGroups].forEach(g => this.hide(g.objs));
 
       // music: the dreamy menu loop, with its control in the top-right corner of every screen
@@ -138,15 +113,14 @@
         this.mode = 'menu';
         this.setInput();
       } else {
-        this.veil.setVisible(true).setAlpha(0.78);
+        this.veil.setVisible(true).setAlpha(VEIL);
         this.menuGroups.forEach(g => this.hide(g.objs));
         this.show(this.startMode);
       }
     }
 
-    // The planet screen's groups; the art is rebuilt as the carousel turns, so this is read fresh.
     selGroups() {
-      return [{ objs: [this.frame, this.art, this.maskG], dx: 0, dy: 60, delay: 80, ease: 'Back.out' }, ...this.selStatic];
+      return [{ objs: [this.carousel], dx: 0, dy: 60, delay: 80, ease: 'Back.out' }, ...this.selStatic];
     }
     groupsOf(mode) {
       return mode === 'menu' ? this.menuGroups : mode === 'select' ? this.selGroups() : mode === 'levels' ? this.lvGroups : [];
@@ -155,7 +129,7 @@
     hide(objs) {
       objs.forEach(o => {
         this.tweens.killTweensOf(o);
-        if (o !== this.maskG) o.setVisible(false);
+        o.setVisible(false);
         if (o.input) o.input.enabled = false;
       });
     }
@@ -179,26 +153,15 @@
         if (!o.setAlpha) { o.setVisible(false); return; }
         this.tweens.add({
           targets: o, x: o.hx + g.dx * 0.5, y: o.hy + g.dy * 0.5, alpha: 0, delay: g.delay * 0.3, duration: 220, ease: 'Cubic.in',
-          onComplete: () => { if (o !== this.maskG) o.setVisible(false); o.setPosition(o.hx, o.hy); },
+          onComplete: () => { o.setVisible(false); o.setPosition(o.hx, o.hy); },
         });
       }));
     }
 
-    // Turn on the pointer for the current screen (arrows only where there is a planet to go to).
+    // Turn on the pointer for the current screen.
     setInput() {
       this.groupsOf(this.mode).forEach(g => g.objs.forEach(o => { if (o.input) o.input.enabled = true; }));
-      if (this.mode === 'select') this.updateArrows();
-      this.input.setDefaultCursor('default');
-    }
-
-    updateArrows() {
-      const n = CP.WORLDS.length;
-      this.la.enabled = this.idx > 0;
-      this.ra.enabled = this.idx < n - 1;
-      [this.la, this.ra].forEach(a => {
-        if (this.mode === 'select' && !this.busy) a.hit.input.enabled = a.enabled;
-        a.draw(false);
-      });
+      this.cardInput();
       this.input.setDefaultCursor('default');
     }
 
@@ -210,6 +173,7 @@
       this.busy = true;
       // a button hidden while hovered would come back inverted
       this.buttons.forEach(b => b.draw(false));
+      this.cardInput();
       this.input.setDefaultCursor('default');
 
       if (prev) this.flyOut(this.groupsOf(prev));
@@ -223,11 +187,12 @@
       } else if (prev === 'menu') {
         // the key art slowly sinks into the dark before the planet screen arrives
         this.veil.setVisible(true);
-        this.tweens.add({ targets: this.veil, alpha: 0.78, duration: 700, ease: 'Sine.inOut' });
+        this.tweens.add({ targets: this.veil, alpha: VEIL, duration: 700, ease: 'Sine.inOut' });
         base = 320;
       }
 
-      if (mode === 'select') { this.refresh(); this.updateArrows(); }
+      this.glow();
+      if (mode === 'select') this.placeCards(false);
       this.flyIn(this.groupsOf(mode), base);
       if (mode === 'levels') this.buildCards(base + 60);
 
@@ -243,12 +208,6 @@
       return Phaser.Math.Clamp(CP.save.progress[w.id] || 1, 1, w.levels.length);
     }
 
-    refresh() {
-      const w = CP.WORLDS[this.idx], th = w.levels[0].theme;
-      this.pName.setText(w.name.toUpperCase());
-      CP.ui.gradient(this.pName, '#ffffff', th.glow2);
-      this.pInfo.setText(`${this.opened(w)} / ${w.levels.length} LEVELS OPEN`);
-    }
 
     // Remove the level cards; animated, they sink and fade first.
     clearCards(animate) {
@@ -295,6 +254,11 @@
         g.clear().fillStyle(on ? 0xffffff : 0x000000, 1).fillRect(left, top + TH, TW, BAR)
           .lineStyle(LINE, 0xffffff, locked ? 0.2 : on ? 1 : 0.45).strokeRect(left, top, TW, TH + BAR)
           .lineStyle(LINE, 0xffffff, locked ? 0.2 : on ? 1 : 0.45).lineBetween(left, top + TH, left + TW, top + TH);
+        // the picked card wears the same outer ring as the hovered planet card
+        if (on) g.lineStyle(3, 0xffffff, 0.5).strokeRect(left - 10, top - 10, TW + 20, TH + BAR + 20);
+        // a square padlock over locked previews
+        if (locked) g.lineStyle(6, 0x8a8a8a, 1).strokeRect(x - 13, y - 30, 26, 30).fillStyle(0x8a8a8a, 1).fillRect(x - 22, y - 10, 44, 34)
+          .fillStyle(0x000000, 1).fillRect(x - 3, y + 1, 6, 12);
         t.setColor(on ? '#000000' : locked ? 'rgba(255,255,255,0.3)' : '#ffffff');
       };
       if (!locked) {
@@ -355,41 +319,124 @@
       this.drawCards();
     }
 
-    // Placeholder artwork for planet i, centred in the square and shifted by dx: a lit sphere in the
-    // planet's own colours over a few stars. Swap this for the real planet art later.
-    planetArt(i, dx) {
-      const th = CP.WORLDS[i].levels[0].theme, c = this.add.container(BX + dx, BY);
-      const g = this.add.graphics(), col = CP.art.color(th.glow), lit = CP.art.color(th.glow2);
-      const rng = new Phaser.Math.RandomDataGenerator([CP.WORLDS[i].id]);
-      for (let k = 0; k < 26; k++) {
-        g.fillStyle(0xffffff, rng.realInRange(0.25, 0.8));
-        const s = rng.pick([2, 2, 3]);
-        g.fillRect(rng.between(-BOX / 2 + 8, BOX / 2 - 8), rng.between(-BOX / 2 + 8, BOX / 2 - 8), s, s);
-      }
-      g.fillStyle(col, 0.12).fillCircle(0, 0, 124);
-      g.fillStyle(col, 1).fillCircle(0, 0, 104);
-      g.fillStyle(lit, 0.55).fillCircle(-26, -28, 70);
-      g.fillStyle(0x000000, 0.35).fillCircle(30, 32, 84);
-      g.fillStyle(0x000000, 0.18).fillCircle(-40, 30, 14).fillCircle(38, -44, 10).fillCircle(10, 60, 9);
-      c.add(g);
-      c.setMask(this.artMask);
-      c.hx = BX; c.hy = BY;
-      return c;
+    // The picture card of planet i: its art with the name and tagline over a dark fade at the foot, a play tab in the
+    // bottom-right corner and a square outline. Hovered, the chosen card lifts, gains an outer ring and its tab inverts;
+    // a hovered neighbour brightens. Clicking the chosen card opens its levels, clicking a neighbour turns to it.
+    planetCard(i) {
+      const w = CP.WORLDS[i], th = w.levels[0].theme, h = CARD / 2, T = 84;
+      const c = this.add.container(BX, BY);
+      const art = this.add.image(0, 0, 'card-' + w.id).setDisplaySize(CARD, CARD);
+      const fade = this.add.graphics();
+      for (let k = 0; k < 16; k++) fade.fillStyle(0x000000, 0.8 * (k + 1) / 16).fillRect(-h, h - 160 + k * 10, CARD, 10);
+      // the tagline wraps short of the play tab; the name sits on top of it
+      const tag = CP.ui.label(this, -h + 28, h - 16, w.tagline.toUpperCase(), 12, 'rgba(255,255,255,0.75)', 2)
+        .setOrigin(0, 1).setAlign('left').setWordWrapWidth(CARD - T - 60);
+      const name = CP.ui.chunky(this, -h + 26, tag.y - tag.height + 8, w.name.toUpperCase(), 52).setOrigin(0, 1);
+      CP.ui.gradient(name, '#ffffff', th.glow2);
+      const tab = this.add.graphics(), dim = this.add.rectangle(0, 0, CARD, CARD, 0x000000, 1).setAlpha(0);
+      const ring = this.add.graphics();
+      const hit = this.add.zone(0, 0, CARD, CARD).setInteractive({ useHandCursor: true });
+      c.add([art, fade, name, tag, tab, dim, ring, hit]);
+      this.carousel.add(c);
+      const card = { i, c, dim, hit, face: [fade, name, tag, tab], on: false };
+      card.draw = () => {
+        const on = card.on && i === this.idx, x = h - T, y = h - T;
+        ring.clear().lineStyle(6, 0xffffff, 1).strokeRect(-h, -h, CARD, CARD);
+        if (on) ring.lineStyle(3, 0xffffff, 0.5).strokeRect(-h - 14, -h - 14, CARD + 28, CARD + 28);
+        tab.clear().fillStyle(on ? 0xffffff : 0x000000, 1).fillRect(x, y, T, T)
+          .lineStyle(6, 0xffffff, 1).strokeRect(x, y, T, T)
+          .fillStyle(on ? 0x000000 : 0xffffff, 1)
+          .fillTriangle(x + T / 2 + 18, y + T / 2, x + T / 2 - 13, y + T / 2 - 21, x + T / 2 - 13, y + T / 2 + 21);
+      };
+      const ready = () => this.mode === 'select' && !this.busy && !this.sliding;
+      hit.on('pointerover', () => {
+        if (!ready()) return;
+        card.on = true;
+        card.draw();
+        if (i === this.idx) this.tweens.add({ targets: c, scale: 1.03, duration: 160, ease: 'Cubic.out' });
+        else this.tweens.add({ targets: dim, alpha: 0.3, duration: 160 });
+      });
+      hit.on('pointerout', () => {
+        if (!card.on) return;
+        card.on = false;
+        card.draw();
+        if (this.sliding) return;
+        if (i === this.idx) this.tweens.add({ targets: c, scale: 1, duration: 160, ease: 'Cubic.out' });
+        else this.tweens.add({ targets: dim, alpha: 0.6, duration: 160 });
+      });
+      hit.on('pointerdown', () => {
+        if (!ready()) return;
+        if (CP.audio) CP.audio.unlock();
+        if (i === this.idx) this.show('levels'); else this.move(i - this.idx);
+      });
+      card.draw();
+      return card;
     }
 
-    // Slide to the next/previous planet; the carousel stops at the first and last planet.
+    // Put every card in its carousel slot: the chosen one big in the middle, its neighbours small and dimmed at
+    // the sides, the rest off screen. Animated, the cards slide there.
+    placeCards(animate) {
+      this.pcards.forEach(card => {
+        const s = card.i - this.idx, far = Math.abs(s) > 1, side = s !== 0;
+        const to = { x: BX + Phaser.Math.Clamp(s, -2, 2) * GAP, scale: side ? SIDE : 1, alpha: far ? 0 : 1 };
+        card.on = false;
+        card.draw();
+        this.tweens.killTweensOf([card.c, card.dim, ...card.face]);
+        if (!animate) {
+          card.c.setPosition(to.x, BY).setScale(to.scale).setAlpha(to.alpha).setVisible(!far);
+          card.dim.setAlpha(side ? 0.6 : 0);
+          card.face.forEach(o => o.setAlpha(side ? 0 : 1));
+          return;
+        }
+        if (card.c.alpha === 0) card.c.setPosition(BX + Phaser.Math.Clamp(s + Math.sign(s), -2, 2) * GAP, BY);
+        card.c.setVisible(true);
+        this.tweens.add({ targets: card.c, x: to.x, scale: to.scale, alpha: to.alpha, duration: 320, ease: 'Cubic.inOut',
+          onComplete: () => card.c.setVisible(!far) });
+        this.tweens.add({ targets: card.dim, alpha: side ? 0.6 : 0, duration: 320 });
+        this.tweens.add({ targets: card.face, alpha: side ? 0 : 1, duration: 320 });
+      });
+      this.carousel.bringToTop(this.pcards[this.idx].c);
+      this.drawDots();
+      this.cardInput();
+    }
+
+    // Planet cards take the pointer only on the planet screen, at rest, and only the ones on screen.
+    cardInput() {
+      const on = this.mode === 'select' && !this.busy;
+      this.pcards.forEach(card => { card.hit.input.enabled = on && Math.abs(card.i - this.idx) <= 1; });
+    }
+
+    // A row of small squares under the card, one per planet; the chosen one is filled.
+    drawDots() {
+      const n = CP.WORLDS.length, S = 14, G = 16, y = BY + CARD / 2 + 54, x0 = BX - (n * S + (n - 1) * G) / 2;
+      this.dots.clear();
+      for (let k = 0; k < n; k++) {
+        const x = x0 + k * (S + G);
+        if (k === this.idx) this.dots.fillStyle(0xffffff, 1).fillRect(x, y - S / 2, S, S);
+        else this.dots.lineStyle(3, 0xffffff, 0.45).strokeRect(x, y - S / 2, S, S);
+      }
+    }
+
+    // Fade the chosen planet's picture in behind the planet and level screens (and out on the main menu).
+    glow() {
+      this.amb.forEach((img, k) => {
+        const a = this.mode !== 'menu' && k === this.idx ? AMB : 0;
+        this.tweens.killTweensOf(img);
+        if (a) img.setVisible(true);
+        this.tweens.add({ targets: img, alpha: a, duration: 500, ease: 'Sine.inOut', onComplete: () => img.setVisible(a > 0) });
+      });
+    }
+
+    // Turn the carousel d planets over; it stops at the first and last planet.
     move(d) {
       if (this.sliding || this.busy || this.mode !== 'select') return;
       const to = this.idx + d;
       if (to < 0 || to >= CP.WORLDS.length) return;
       this.idx = to;
-      const old = this.art, next = this.planetArt(this.idx, d * BOX);
-      this.art = next;
       this.sliding = true;
-      this.tweens.add({ targets: old, x: BX - d * BOX, duration: 260, ease: 'Cubic.inOut', onComplete: () => old.destroy() });
-      this.tweens.add({ targets: next, x: BX, duration: 260, ease: 'Cubic.inOut', onComplete: () => { this.sliding = false; } });
-      this.refresh();
-      this.updateArrows();
+      this.placeCards(true);
+      this.glow();
+      this.time.delayedCall(320, () => { this.sliding = false; });
     }
 
     go() {
